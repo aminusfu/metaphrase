@@ -1,0 +1,1275 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>&#xd79;</title>
+    <meta name="viewport" content="initial-scale=0.75">
+    <link rel="stylesheet" type="text/css" href="/ui/common.css" />
+    <link rel="stylesheet" type="text/css" href="/ui/versions.css" />
+<style type='text/css'>
+
+#section_title {
+    cursor: pointer;
+}
+
+#previous_section_button, #next_section_button {
+    cursor: pointer;
+    visibility: hidden;
+}
+
+.passage {
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 1em;
+    right: 1em;
+    /* The padding-top (and line-height) will be adjusted to interleave each passage when rendered */
+    padding: 0;
+}
+
+.word {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.diff_word {
+    border: 2px dotted red;
+    border-radius: 1em;
+}
+
+#mark_diffs_toggle {
+    border: 2px dotted #990000;
+    border-radius: 1em;
+    min-width: 2em;
+    cursor: pointer;
+}
+
+.perseus_link, .logeion_link {
+    cursor: pointer;
+    font-size: 75%;
+    vertical-align: super;
+}
+
+.selected_phrase {
+    border-bottom: 2px dotted #FFFF00;
+}
+
+.selected_word {
+    /* This must be after .selected_phrase or the solid line won't override. */
+    border-bottom: 2px solid #FFFF00;
+}
+
+.verb   { color: #FFFFCC; }
+.case_N { color: #DDDDFF; }
+.case_A { color: #FFDDBB; }
+.case_D { color: #FFBBFF; }
+.case_G { color: #DDFFDD; }
+.voice_M { font-style: italic }
+
+.ref {
+    cursor: pointer;
+}
+
+.verse {
+    background-color: black;
+    margin: 0 0.25em;
+    font: .83em Times, serif;
+    vertical-align: super;
+}
+
+#text_tools {
+    position: absolute;
+    top: 0;
+    right: 1em;
+}
+
+#text_editing {
+    cursor: default;
+}
+
+#word, #lemma {
+    cursor: text;
+}
+
+.has_notes {
+    font-weight: 900;
+}
+
+#parsing {
+    cursor: pointer;
+    font: 12pt GentiumPlusW, serif;
+}
+
+.open_entry_button {
+    cursor: pointer;
+    vertical-align: top;
+    font-size: 0.75em;
+}
+
+#open_lemma_button {
+    cursor: pointer;
+    vertical-align: top;
+}
+
+.add_words_toggle, #add_words_add_button, #add_words_cancel_button {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.add_words_toggle {
+    min-width: 1em;
+}
+
+#translate_toggle, #translate_add_button, #translate_cancel_button {
+    cursor: pointer;
+}
+
+#translate_toggle {
+    min-width: 1em;
+}
+
+#lexical_note_toggle, #lexnote_save_button, #lexnote_cancel_button {
+    cursor: pointer;
+}
+
+#parsing_save_button, #alter_parsing_cancel_button {
+    cursor: pointer;
+}
+
+#select_lemma_cancel_button {
+    cursor: pointer;
+}
+
+#lexical_notes_wrapper, #add_words_wrapper, #translate_wrapper {
+    position: absolute;
+    top: 4em;
+    right: 2em;
+    bottom: 2em;
+    left: 2em;
+    margin: 0;
+    padding: 0;
+    text-align: left;
+}
+
+#lexical_note, #add_words_textarea {
+    position: absolute;
+    width: 100%;
+    bottom: 0;
+    top: 0;
+    margin: 0;
+    padding: 0.25em; 
+    -webkit-appearance: none;
+    outline: none;
+    background-color: black;
+    color: white;
+    border: none;
+    font: 16pt GentiumPlusW, serif;
+}
+
+#translate_input, #translate_output {
+    width: 100%;
+    background-color: black;
+    color: white;
+    border: 1px solid #666666;
+    font: 16pt GentiumPlusW, serif;
+}
+
+#add_version_form {
+    float: left;
+    text-align: left;
+    margin: 0.5em;
+    padding: 1em;
+    border: 1px dotted #666666;
+}
+
+#add_version_form, #add_version_form .mph_select {
+    font-size: 16pt;
+}
+
+.lemma_group {
+    clear: both;
+    font: 16pt GentiumPlusW, serif;
+    padding: 1em 0 0 0;
+    border-bottom: 1px solid #FFFFCC;
+    text-align: left;
+}
+
+.existing_lemma {
+    float: left;
+    cursor: pointer;
+    font: 16pt GentiumPlusW, serif;
+    padding: 0 0.5em;
+}
+
+#alter_parsing_options {
+    overflow-y: scroll;
+    height: 90%;
+}
+
+.alter_parsing_category_div {
+    float: left;
+    padding: 0.5em;
+    margin: 0 1em;
+}
+
+.alter_parsing_category_div h2 {
+    font: 18pt GentiumPlusW, serif;
+    margin: 0.25em;
+}
+
+.alter_parsing_category_div .mph_select {
+    height: 100%;
+}
+
+</style>
+
+<script type="text/javascript" src="/ui/json2.js"></script>
+<script type="text/javascript" src="/ui/common.js"></script>
+<script type="text/javascript">
+
+var work = segment(window.location.href, 3);
+var section = segment(window.location.href, 4);
+var api_root = "/api/";
+var worksection = work + "/" + section + "/";
+
+var entries = {};
+var lexical_notes = {};
+
+function word_from_spanid(wordid) { return associate(["phraseid", "wordid", "version"], wordid.split("-")); }
+
+//                                SECTIONS                                //
+
+function documentOffsetTop(element) {
+    var top = element.offsetTop;
+    if (element.offsetParent) top += documentOffsetTop(element.offsetParent);
+    return top;
+};
+
+function scrollToMiddle(element) {
+    window.scrollTo(0, documentOffsetTop(element) - (window.innerHeight / 2));
+}
+
+function load_section() {
+    // Fetch the version text(s).
+    entries = {};
+    lexical_notes = {};
+    var line_height = get_line_height();
+    for (var v = 0; v < versions.length; v++) {
+        entries[versions[v]] = {};
+        lexical_notes[versions[v]] = {};
+
+        var url = api_root + "versions/" + versions[v] + "/text/" + worksection;
+        var h = http("GET", url, true, "Retrieving " + versions[v]);
+        // Pass the version index into the 200 function.
+        h.rownum = v;
+        h[200] = function(h) {
+            var passage = JSON.parse(h.responseText);
+
+            entries[versions[h.rownum]] = passage['index'];
+            lexical_notes[versions[h.rownum]] = passage['lexical_notes'];
+
+            if (h.rownum == 0) {
+                set_text($('section_title'), passage["name"]);
+                // For some reason, including a space between these causes
+                // the malayalam date mark to be rendered as a registered trademark.
+                // When the section name starts with a number, even no space
+                // is not enough; we must use \u180e (MONGOLIAN VOWEL SEPARATOR)
+                document.title = "\u0D79\u180e" + passage["name"];
+
+                var prev_section = passage["previous"];
+                var prevbutt = $("previous_section_button");
+                if (prev_section === null) {
+                    prevbutt.style.visibility = "hidden";
+                    prevbutt.href = "javascript:void(0);";
+                    prevbutt.title = 'No previous section';
+                } else {
+                    prevbutt.style.visibility = "visible";
+                    prevbutt.href = "../../" + prev_section["id"] + "/" + window.location.search;
+                    prevbutt.title = prev_section["name"];
+                }
+
+                var next_section = passage["next"];
+                var nextbutt = $("next_section_button");
+                if (next_section === null) {
+                    nextbutt.style.visibility = "hidden";
+                    nextbutt.href = "javascript:void(0);";
+                    nextbutt.title = 'No next section';
+                } else {
+                    nextbutt.style.visibility = "visible";
+                    nextbutt.href = "../../" + next_section["id"] + "/" + window.location.search;
+                    nextbutt.title = next_section["name"];
+                }
+            }
+
+            var passage_element = document.createElement("div");
+            passage_element.className = 'passage';
+            passage_element.id = 'passage-' + versions[h.rownum];
+            if (passage.order.length == 0) {
+                // If there are no words, there's no way to select one to
+                // display the footer to add more.
+                passage_element.innerHTML = 'No text. Click <span class="add_words_toggle" onclick="toggle_add_words()" title="Add words">+</span> to add some.';
+            } else {
+                passage_element.innerHTML = renderPassage(passage);
+            }
+            passage_element.style.lineHeight = line_height + "pt";
+            passage_element.style.paddingTop = (h.rownum * passage_font_size * 1.1) + "pt";
+
+            $('workbench').appendChild(passage_element);
+        }
+        h[404] = function(h) {};
+        h.send();
+    }
+}
+
+function relead() {
+    var line_height = get_line_height();
+    var passages = document.getElementsByClassName("passage");
+    for (var p = 0; p < passages.length; p++) {
+        passages[p].style.lineHeight = line_height + "pt";
+        passages[p].style.paddingTop = (p * passage_font_size * 1.1) + "pt";
+    }
+}
+
+function renderPassage(passage) {
+    // Return innerHTML for a passage div.
+    var newHTML = '';
+    var prev_verse = null;
+
+    for (var i=0; i < passage.order.length; i++) {
+        var pwid = passage.order[i].split(":", 2);
+        var phraseid = pwid[0];
+        var wordid = pwid[1];
+        var entry = entries[passage.version][phraseid] || {"parsing": "", "text": []};
+
+        // Add a space, if necessary.
+        if (i > 0 && entry.parsing.charAt(0) != "S") newHTML = newHTML + " ";
+
+        // Add verse anchor. TODO: generalize this.
+        var id_parts = phraseid.split(".");
+        var verse = id_parts[0];
+        if (verse != prev_verse) {
+            newHTML = newHTML + "<a name='verse_" + verse + "' class='verse'>" + verse + "</a>";
+            prev_verse = verse;
+        }
+
+        var spanclass = word_css_class(entry.parsing);
+
+        newHTML = newHTML +
+                  "<span id='" + phraseid + "-" + wordid + "-" + passage.version +
+                  "' class='" + spanclass + "' " +
+                  "onclick='click_word();'>" +
+                  entry.text[parseInt(wordid)] + "</span>";
+    }
+    return newHTML;
+}
+
+function get_line_height() {
+    // Calculate the leading between successive lines from the same version,
+    // which will be interleaved with lines from other versions.
+    var line_height = versions.length;
+    // If there is only one version, use normal (1.2) lineHeight.
+    // If more than one, leave an extra line between each block to help
+    // see word wrap.
+    if (versions.length > 1) line_height += 1;
+    line_height *= 1.2 * passage_font_size;
+    return line_height;
+}
+
+function order_passages() {
+    var line_height = get_line_height();
+
+    for (var v = 0; v < versions.length; v++) {
+        var passage_element = $("passage-" + versions[v]);
+        if (passage_element === null) continue;
+        passage_element.style.lineHeight = line_height + "pt";
+        // TODO: animate this
+        passage_element.style.paddingTop = (v * passage_font_size * 1.2) + "pt";
+    }
+}
+
+function click_word(e) {
+    e = e || window.event;
+    select_word(e.target || e.srcElement);
+    e.stopPropagation ? e.stopPropagation() : (e.cancelBubble = true)
+}
+
+function word_css_class(parsing) {
+    // Return a string containing the class list for the given parsing.
+    var spanclass = 'word';
+    if (parsing != undefined && parsing != '') {
+        var casechar = parsing.charAt(5);
+        if (casechar == '-') {
+            if (parsing.charAt(0) == 'V' && parsing.charAt(4) != 'P') {
+                spanclass = spanclass + ' verb';
+            }
+        } else {
+            spanclass = spanclass + ' case_' + casechar;
+        }
+        
+        var voicechar = parsing.charAt(3);
+        spanclass = spanclass + ' voice_' + voicechar;
+    }
+    return spanclass;
+}
+
+function open_entry(criteria) {
+    var url = "/versions/" + selected_version + "/concordance/"
+            + encodeURIComponent(JSON.stringify(criteria))
+            + "/" + window.location.search;
+    window.open(url);
+}
+
+parsing_codes = {
+    "part": {
+       "A": "adjective",
+       "C": "conjunction",
+       "D": "adverb",
+       "I": "interjection",
+       "N": "noun",
+       "P": "preposition",
+       "T": "article",
+       "d": "demonstrative pronoun",
+       "Q": "interrogative/indefinite pronoun",
+       "p": "personal/possessive pronoun",
+       "r": "relative pronoun",
+       "V": "verb",
+       "X": "particle",
+       "S": "symbol",
+       "-": ""
+    },
+    "person": {
+        "-": "",
+        "1": "1st person",
+        "2": "2nd person",
+        "3": "3rd person"
+    },
+    "tense": {
+        "-": "",
+        "A": "aorist",
+        "F": "future",
+        "I": "imperfect",
+        "P": "present",
+        "X": "perfect",
+        "Y": "pluperfect"
+    },
+    "voice": {
+        "-": "",
+        "A": "active",
+        "M": "middle",
+        "P": "passive"
+    },
+    "mood": {
+        "-": "",
+        "D": "imperative",
+        "I": "indicative",
+        "N": "infinitive",
+        "O": "optative",
+        "P": "participle",
+        "S": "subjunctive"
+    },
+    "case": {
+        "-": "",
+        "A": "accusative",
+        "D": "dative",
+        "G": "genitive",
+        "N": "nominative",
+        "V": "vocative"
+    },
+    "number": {
+        "-": "",
+        "P": "plural",
+        "S": "singular"
+    },
+    "gender": {
+        "-": "",
+        "F": "feminine",
+        "M": "masculine",
+        "N": "neuter"
+    },
+    "degree": {
+        "-": "",
+        "C": "comparative",
+        "S": "superlative"
+    }
+}
+
+parsing_repr_order = [0, 4, 3, 5, 2, 7, 1, 6, 8];
+parsing_category_order = ["part", "person", "tense", "voice", "mood", "case", "number", "gender", "degree"];
+
+
+function parsing_repr(parsing_code) {
+    // Return a user-friendly string describing the given parsing code.
+    var r = [];
+    if (parsing_code != undefined && parsing_code != '') {
+        for (var i=0; i < parsing_repr_order.length; i++) {
+            var chindex = parsing_repr_order[i];
+            var ch = parsing_code.charAt(chindex);
+            var exp = parsing_codes[parsing_category_order[chindex]][ch];
+            if (exp !== undefined && exp.length != 0) { r.push(exp); }
+        }
+    }
+    return r.join(", ");
+}
+
+var selected_spanid = null;
+var selected_phraseid = null;
+var selected_version = null;
+
+function select_word(wordspan) {
+    var wordspans = document.getElementsByClassName("word");
+
+    // Unmark any previous selection.
+    for (var i=0; i < wordspans.length; i++) {
+        var selspan = wordspans[i];
+        selspan.classList.remove("selected_word");
+        selspan.classList.remove("selected_phrase");
+    }
+
+    if (wordspan === null) {
+        selected_spanid = null;
+        selected_phraseid = null;
+        set_text($("word"), "");
+        set_text($("original"), "");
+        set_text($("lemma"), "");
+        set_text($("parsing"), "");
+        set_lexical_note("");
+        set_selected_version(null);
+        $("footer").style.visibility = 'hidden';
+    } else {
+        selected_spanid = wordspan.id;
+        var selection = word_from_spanid(wordspan.id);
+        selected_phraseid = selection.phraseid;
+
+        // First, the selected word may actually be spread over mutliple spans.
+        // Mark them all.
+        for (var i=0; i < wordspans.length; i++) {
+            var curspan = wordspans[i];
+            var curword = word_from_spanid(curspan.id);
+
+            if (curword.phraseid == selection.phraseid) {
+                if (curword.version == selection.version) {
+                    curspan.classList.add("selected_word");
+                } else {
+                    curspan.classList.add("selected_phrase");
+                }
+            }
+        }
+
+        var entry = entries[selection.version][selected_phraseid];
+
+        set_text($("word"), entry["text"].join(" "));
+        set_text($("original"), entry.original);
+        set_text($("lemma"), entry.lemma);
+        set_text($("parsing"), parsing_repr(entry.parsing));
+        for (var i=0; i < parsing_category_order.length; i++) {
+            var ch = entry.parsing.charAt([i]);
+            set_option($('select_' + parsing_category_order[i]), ch);
+        }
+
+        var lexnote = lexical_note_text(selection.version, entry.lemma);
+        set_lexical_note(lexnote);
+        set_selected_version(selection.version);
+        $("footer").style.visibility = 'visible';
+    }
+
+    return false;
+}
+
+//                                   WORDS                                   //
+
+function update_selected_word(newtext) {
+    if (version_is_locked(selected_version)) {
+        set_status("Cannot edit. The '" + selected_version + "' version is locked.", 5000, "#CC0000");
+        return;
+    }
+
+    newtext = newtext.split(" ");
+    var reqbody = {
+        "version": selected_version,
+        "index": {}
+    };
+    reqbody["index"][selected_phraseid] = {"text": newtext};
+
+    // Make a local copy of the selected id so that if the user
+    // changes the selection while we're waiting for the async call
+    // to the server, we won't update the wrong spans.
+    var selword_id = selected_spanid;
+    var selection = word_from_spanid(selected_spanid);
+    var entry = entries[selection.version][selected_phraseid];
+    var pretext = entry.text.length;
+    var posttext = newtext.length;
+    var url = api_root + "versions/" + selected_version + "/text/" + worksection;
+    var h = http("PATCH", url, true, "Saving...");
+    h[204] = function(h) {
+
+        var lastspan = null;
+        for (var wordid=0; wordid < posttext; wordid++) {
+            var spanid = [selection.phraseid, wordid, selection.version].join("-");
+            var wordspan = $(spanid);
+            if (wordspan === null) {
+                if (wordid >= pretext) {
+                    // Make a new wordspan...
+                    wordspan = document.createElement("span");
+                    wordspan.id = spanid;
+                    wordspan.className = word_css_class(entry.parsing);
+                    wordspan.onclick = click_word;
+                    set_text(wordspan, newtext[wordid]);
+
+                    // ...after the last one or at the end
+                    var passage = $('passage-' + selection.version);
+                    if (lastspan === null) {
+                        passage.appendChild(document.createTextNode(" "));
+                        passage.appendChild(wordspan);
+                    } else {
+                        var nextspan = lastspan.nextSibling;
+                        passage.insertBefore(document.createTextNode(" "), nextspan);
+                        passage.insertBefore(wordspan, nextspan);
+                    }
+                    lastspan = wordspan;
+                }
+            } else {
+                set_text(wordspan, newtext[wordid]);
+                lastspan = wordspan;
+            }
+        }
+
+        // Remove any extraneous wordspans
+        for (var wordid=posttext; wordid < pretext; wordid++) {
+            var spanid = [selection.phraseid, wordid, selection.version].join("-");
+            var wordspan = $(spanid);
+            if (wordspan !== null) wordspan.parentNode.removeChild(wordspan);
+        }
+
+        entry["text"] = newtext;
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify(reqbody));
+}
+
+function word_keydown(e) {
+    e = e || window.event;
+    switch (e.keyCode) {
+        case 13: // enter
+            if (selected_spanid === null || $("word").disabled) return;
+
+            update_selected_word(get_text($("word")));
+
+            // Advance to the next word (if there is one)
+            var next = $(selected_spanid).nextSibling;
+            while (true) {
+                // Reached the last sibling.
+                if (next == null) break;
+
+                if (next.tagName == "SPAN") {
+                   var nextentry = entries[selected_version][next.id.split("-")[0]];
+                   if (nextentry != undefined && nextentry.parsing.charAt(0) != 'S') break;
+                }
+                next = next.nextSibling;
+            }
+            select_word(next);
+            return false;
+    }
+}
+
+function update_lemma(newlemma) {
+    if (selected_phraseid === null) return;
+
+    var url = api_root + "versions/" + selected_version + "/text/" + worksection;
+    var h = http("PATCH", url, true, "Saving...");
+    // Make a local copy of the selected id so that if the user
+    // changes the selection while we're waiting for the async call
+    // to the server, we won't update the wrong entries.
+    var selphrase = selected_phraseid;
+    var selversion = selected_version;
+    h[204] = function(h) {
+        entries[selversion][selphrase]["lemma"] = newlemma;
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    var reqbody = {"element": "shoji:catalog", "index": {}};
+    reqbody['index'][selected_phraseid] = {"lemma": newlemma};
+    h.send(JSON.stringify(reqbody));
+}
+
+function lemma_keydown(e) {
+    e = e || window.event;
+    switch (e.keyCode) {
+        case 13: // enter
+            update_lemma(get_text($("lemma")));
+            return false;
+    }
+}
+
+function record_moved_word(span, beforeWord) {
+    var word = word_from_spanid(span.id);
+    if (version_is_locked(word.version)) {
+        set_status("Cannot edit. The '" + word.version + "' version is locked.", 5000, "#CC0000");
+        return;
+    }
+
+    var wordid = [word.phraseid, word.wordid].join(":");
+    var beforeWordid = [beforeWord.id.split("-")[0], beforeWord.id.split("-")[1]].join(":");
+    var reqbody = {"id": wordid, "movebefore": beforeWordid};
+
+    var url = api_root + "versions/" + word.version + "/text/" + worksection + "order/";
+    var h = http("PATCH", url, true, "Saving...");
+    h[204] = function(h) {};
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify(reqbody));
+}
+
+//                                   DRAGGING                                   //
+
+var dragged_element = null;
+var dragOffsetX = 0, dragOffsetY = 0;
+var dragged_parent = null;
+var dragged_before = null;
+
+function start_dragging_word(e, target) {
+    dragged_element = target;
+    var dragged_rect = dragged_element.getClientRects()[0];
+    dragOffsetY = e.clientY - dragged_rect.top;
+    dragOffsetX = e.clientX - dragged_rect.left;
+    dragged_element.style.position = "relative";
+    dragged_element.style.top = "0px";
+    dragged_element.style.left = "0px";
+    dragged_parent = target.parentNode;
+
+    document.onmousemove = doc_mousemove;
+
+    // cancel out any text selections
+    document.body.focus();
+    // prevent text selection in IE
+    document.onselectstart = function () { return false; };
+    // prevent IE from trying to drag an image
+    dragged_element.ondragstart = function() { return false; };
+
+    // prevent text selection (except IE)
+    return false;
+}
+
+function keep_dragging_word(e, className, separator) {
+    var dragged_rect = dragged_element.getClientRects()[0];
+    var top = dragged_rect.top - parseInt(dragged_element.style.top);
+    var left = dragged_rect.left - parseInt(dragged_element.style.left);
+    dragged_element.style.top = (e.clientY - dragOffsetY - top) + "px";
+    dragged_element.style.left = (e.clientX - dragOffsetX - left) + "px";
+
+    var nodes = dragged_parent.getElementsByClassName(className);
+    for (var i=0; i < nodes.length; i++) {
+        var node = nodes[i];
+        if (node === dragged_element) continue;
+
+        var begin = node.getClientRects()[0];
+        if ((e.clientY > begin.top)
+            && (e.clientY < begin.top + begin.height)
+            && (e.clientX < begin.left + begin.width)) {
+
+            if (node === dragged_before) break;
+            dragged_before = node;
+
+            // Remove any separator text node
+            var nextsib = dragged_element.nextSibling;
+            if (nextsib && (nextsib.nodeType == 3)) dragged_parent.removeChild(nextsib);
+
+            // Move the dragged element
+            dragged_parent.removeChild(dragged_element);
+            dragged_parent.insertBefore(dragged_element, dragged_before);
+
+            // Add a separator.
+            dragged_parent.insertBefore(document.createTextNode(separator), dragged_before);
+
+            break;
+        }
+    }
+}
+
+function doc_mousedown(e) {
+    if (e == null) e = window.event; 
+    var target = e.target != null ? e.target : e.srcElement;
+
+    if (target.classList.contains('word')) {
+        var version = target.id.split("-")[2];
+        if (version_is_locked(version)) return true;
+
+        select_word(target);
+        return start_dragging_word(e, target);
+    } else if (target.classList.contains('version_marker')) {
+        return start_dragging_word(e, target);
+    } else {
+        return true;
+    }
+}
+
+function doc_mousemove(e) {
+    if (e == null) e = window.event;
+
+    if (dragged_element.classList.contains('word')) {
+        keep_dragging_word(e, "word", " ");
+    } else if (dragged_element.classList.contains('version_marker')) {
+        keep_dragging_word(e, "version_marker", ", ");
+    }
+}
+
+function doc_mouseup(e) {
+    if (dragged_element != null) {
+        if (dragged_element.classList.contains('word')) {
+            dragged_element.style.position = "static";
+
+            // TODO: allow dragging to end.
+            if (dragged_before != null) {
+                record_moved_word(dragged_element, dragged_before);
+            }
+        } else if (dragged_element.classList.contains('version_marker')) {
+            dragged_element.style.position = "static";
+
+            var nodes = dragged_parent.getElementsByClassName("version_marker");
+            var new_versions = [];
+            for (var j=0; j < nodes.length; j++) {
+                new_versions.push(get_text(nodes[j]));
+            }
+            versions = new_versions;
+            order_passages();
+
+            params["versions"] = versions.join(",");
+            history.pushState(null, null, to_qs(params));
+        }
+
+        document.onmousemove = null;
+        document.onselectstart = null;
+        dragged_element.ondragstart = null;
+        dragged_element = null;
+        dragged_parent = null;
+        dragged_before = null;
+    }
+}
+
+function restore_version_state(e) {
+    versions = queryParams()['versions'];
+    if (versions === undefined || versions === null) versions = "";
+    versions = versions.split(",");
+    fill_version_header();
+    order_passages();
+}
+
+//                                   DIFFS                                   //
+
+function mark_diffs(refversion, reversed) {
+    // Mark all words whose text differs from that of the same word in the given refversion.
+    // Unless reversed==true, in which case mark the similar ones instead of different.
+    // If refversion is not a valid version (e.g. null) all are unmarked.
+
+    if (reversed === undefined) reversed = false;
+
+    var wordspans = document.getElementsByClassName("word");
+    for (var i=0; i < wordspans.length; i++) {
+        var word = word_from_spanid(wordspans[i].id);
+        var matched = true;
+        if (refversion !== null && word.version != refversion) {
+            var entry = entries[word.version][word.phraseid].text[parseInt(word.wordid)];
+            var refentry = entries[refversion][word.phraseid].text[parseInt(word.wordid)];
+            matched = (entry == refentry);
+            if (reversed) matched = !matched;
+        }
+        if (matched) {
+            wordspans[i].classList.remove("diff_word");
+        } else {
+            wordspans[i].classList.add("diff_word");
+        }
+    }
+}
+
+function toggle_mark_diffs() {
+    var d = get_text($('mark_diffs_toggle'));
+    if (selected_version === null || d == "!=") {
+        set_text($('mark_diffs_toggle'), "0");
+        mark_diffs(null);
+    } else if (d == "==") {
+        set_text($('mark_diffs_toggle'), "!=");
+        mark_diffs(selected_version, false);
+    } else {
+        set_text($('mark_diffs_toggle'), "==");
+        mark_diffs(selected_version, true);
+    }
+}
+
+//                                 ADD WORDS                                  //
+
+function toggle_add_words() {
+    var d = $('add_words_tab');
+    if (d.style.display == "block") {
+        fadeOut(d, 500);
+    } else {
+        fadeIn(d, 500);
+        set_option($('add_words_version_select'), selected_version);
+        set_option($('add_words_lexicon_select'), selected_version);
+    }
+}
+
+function add_words_add() {
+    var words_to_add = $("add_words_textarea").value;
+    var selected_lexicon = selopt($('add_words_lexicon_select')).value;
+
+    var url = api_root + "versions/" + selopt($('add_words_version_select')).value + "/text/" + worksection;
+    var h = http("POST", url, true, "Saving...");
+    h[204] = function(h) {
+        window.location.reload(true);
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({
+        "element": "shoji:entity",
+        "body": {
+            "text": words_to_add,
+            "lexicon": selected_lexicon
+        }
+    }));
+}
+
+//                                 TRANSLATE                                  //
+
+function toggle_translate() {
+    var d = $('translate_tab');
+    if (d.style.display == "block") {
+        fadeOut(d, 500);
+    } else {
+        fadeIn(d, 500);
+    }
+}
+
+function do_translate() {
+    var input = $("translate_input").value;
+    var s = $('translate_version_select');
+
+    var url = api_root + "versions/" + selopt(s).value + "/translator/";
+    var h = http("POST", url, true, "Saving...");
+    h[200] = function(h) {
+        var j = JSON.parse(h.responseText);
+        $("translate_output").value = j.join(" ");
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({
+        "element": "shoji:entity",
+        "body": {"text": input}
+    }));
+}
+
+//                                   NOTES                                   //
+
+function toggle_notes() {
+    var d = $('lexnote_tab');
+    if (d.style.display == "block") {
+        fadeOut(d, 500);
+    } else {
+        fadeIn(d, 500);
+    }
+}
+
+function lexical_note_text(version, lemma) {
+    // Return the text of the identified lexical note, or the empty string if not found.
+    var lexnotes = lexical_notes[version];
+    if (lexnotes === undefined) return "";
+    lexnote = lexnotes[lemma];
+    if (lexnote === undefined) return "";
+    return lexnote;
+}
+
+function set_lexical_note(lexnote) {
+    $("lexical_note").value = lexnote;
+    if (lexnote == "") {
+        $("lexical_note_toggle").classList.remove("has_notes");
+    } else {
+        $("lexical_note_toggle").classList.add("has_notes");
+    }
+}
+
+function lexnote_save() {
+    if (selected_spanid === null) return;
+    var lemma = get_text($("lemma"));
+    var note = $("lexical_note").value;
+    lexical_notes[selected_version][lemma] = note;
+
+    var url = api_root + "versions/" + selected_version + "/notes/lexical/" + encodeURIComponent(lemma) + "/";
+    var h = http("PUT", url, true, "Saving...");
+    h[204] = function(h) {};
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({"element": "shoji:entity", "body": {"note": note}}));
+    toggle_notes();
+}
+
+//                                   LEMMAS                                   //
+
+function populate_lemmas(element) {
+    var url = api_root + "versions/" + selected_version + "/lexicon/";
+    var h = http("GET", url, true);
+    h[200] = function(h) {
+        var j = JSON.parse(h.responseText);
+        var collation = Collation(j.collation);
+
+        var alphagroups = {};
+        for (var lemma_url in j.index) {
+            var lemma = decodeURIComponent(segment(lemma_url, -2));
+            var initial = collation.collatable(lemma.charAt(0));
+            if (alphagroups[initial] === undefined) alphagroups[initial] = [];
+            alphagroups[initial].push(lemma);
+        }
+        for (var initial in alphagroups) {
+            alphagroups[initial].sort(collation.collate);
+        }
+        var groupkeys = keys(alphagroups);
+        groupkeys.sort();
+
+        var options = "";
+        for (var itl=0; itl < groupkeys.length; itl++) {
+            var initial = groupkeys[itl];
+
+            var group = alphagroups[initial];
+            options += "<div class='lemma_group'>" + initial + "</div>";
+
+            for (var l=0; l < group.length; l++) {
+                var option = "<div class='existing_lemma' onclick='select_lemma(this)'>" + group[l] + "</div>";
+                options += option;
+            }
+        }
+        element.innerHTML = options;
+    }
+    h.send();
+}
+
+function toggle_select_lemma() {
+    var d = $('select_lemma_tab');
+    if (d.style.display == "block") {
+        fadeOut(d, 500);
+    } else {
+        if (selected_spanid === null) return;
+
+        var sel = $('select_lemma_options');
+        if (sel.childNodes.length == 0) populate_lemmas(sel);
+
+        fadeIn(d, 500);
+    }
+}
+
+function select_lemma(element) {
+    fadeOut($('select_lemma_tab'), 100);
+    set_text($('lemma'), get_text(element));
+}
+
+//                                   PARSING                                   //
+
+function populate_parsing_selectors(element) {
+    var ps = "";
+
+    for (var category in parsing_codes) {
+        var codes = parsing_codes[category];
+        var code_keys = keys(codes);
+        code_keys.sort();
+        ps += "<div class='alter_parsing_category_div'><h2>" + category + "</h2><select id='select_" + category + "' class='mph_select' size=" + code_keys.length + ">";
+        for (var i=0; i < code_keys.length; i++) {
+            ps += "<option value='" + code_keys[i] + "'>" + codes[code_keys[i]] + "</option>";
+        }
+        ps += "</select></div>";
+    }
+
+    ps += "<div style='clear: both'>&nbsp;</div>";
+    element.innerHTML = ps;
+}
+
+function toggle_alter_parsing() {
+    var d = $('alter_parsing_tab');
+    if (d.style.display == "block") {
+        fadeOut(d, 500);
+    } else {
+        if (selected_spanid === null) return;
+        fadeIn(d, 500);
+    }
+}
+
+function parsing_save() {
+    var newparsing = "";
+    for (var i=0; i < parsing_category_order.length; i++) {
+        var category = parsing_category_order[i];
+        newparsing += $('select_' + category).value;
+    }
+    set_text($("parsing"), parsing_repr(newparsing));
+
+    var url = api_root + "versions/" + selected_version + "/text/" + worksection;
+    var h = http("PATCH", url, true, "Saving...");
+    // Make a local copy of the selected id so that if the user
+    // changes the selection while we're waiting for the async call
+    // to the server, we won't update the wrong entries.
+    var selphrase = selected_phraseid;
+    var selversion = selected_version;
+    h[204] = function(h) {
+        var entry = entries[selversion][selphrase];
+        entry["parsing"] = newparsing;
+
+        var spanclass = word_css_class(newparsing);
+        // The selected phrase may actually be spread over multiple words
+        // (in multiple versions).
+        // Update the class of them all.
+        for (var wordid=0; wordid < entry["text"].length; wordid++) {
+            var wordspan = $([selphrase, wordid, selversion].join("-"));
+            if (wordspan !== null) {
+                // Grab any orthogonal class items...
+                var existing_sel_class = [];
+                for (var j=0; j < wordspan.classList.length; j++) {
+                    var c = wordspan.classList[j];
+                    if (c.lastIndexOf("selected_", 0) === 0) existing_sel_class.push(c);
+                }
+                // ...set our parsing classes...
+                wordspan.className = spanclass;
+                // ... and restore the orthogonal ones.
+                for (var j=0; j < existing_sel_class.length; j++) {
+                    wordspan.classList.add(existing_sel_class[j]);
+                }
+            }
+        }
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    var reqbody = {"element": "shoji:catalog", "index": {}};
+    reqbody['index'][selected_phraseid] = {"parsing": newparsing};
+    h.send(JSON.stringify(reqbody));
+
+    fadeOut($('alter_parsing_tab'), 100);
+}
+
+//                                   OTHER                                   //
+
+function init() {
+    $('section_title').href = "../../" + to_qs(params);
+
+    load_section();
+    document.onmousedown = doc_mousedown;
+    document.onmouseup = doc_mouseup;
+    window.addEventListener('popstate', restore_version_state);
+
+    fill_version_header();
+    // Populate version selects
+    fill_versions($('add_words_version_select'), versions).selectedIndex = 0;
+    fill_versions($('add_words_lexicon_select'), versions).selectedIndex = 0;
+    fill_versions($('translate_version_select'), versions).selectedIndex = 0;
+
+    populate_versions();
+
+    populate_parsing_selectors($('alter_parsing_options'));
+    $("workbench").focus();
+}
+
+</script>
+<script type="text/javascript" src="/ui/versions.js"></script>
+</head>
+
+<body onLoad="init()">
+
+<div id='header'>
+    <div id="status"></div>
+    <div id='page_title'>
+        <a id='previous_section_button' href='javascript:void(0);' title='No previous section'>&nbsp;&#8249;&nbsp;</a>
+        <a id='section_title' href="#" title="Click for the section index"></a>
+        <a id='next_section_button' href='javascript:void(0);' title='No next section'>&nbsp;&#8250;&nbsp;</a>
+        <div style='float:right; font-size: 16pt; line-height: 8pt'>
+            <a id='smaller_bench_button' href='javascript:smallerBench();relead();' title='Decrease text size'>-</a>
+            <a id='bigger_bench_button' href='javascript:biggerBench();relead();' title='Increase text size'>+</a>
+        </div>
+    </div>
+    <div>
+        <span id='versions_header' onclick="toggle_select_versions()" title="Click to select versions"></span>
+    </div>
+</div>
+
+<div id="workbench" tabindex="-1" onclick="select_word(null)"></div>
+
+<div id='fatal_error'>
+    <h2 id='fatal_error_title'></h2>
+    <p style='float: right'><input type="button" value="Close" onClick="remove_fatal()" /></p>
+    <p id='fatal_error_msg'></p>
+</div>
+
+<div id='lexnote_tab' class='tooltab'>
+    <div id='lexnote_save_button' style='float: left' onclick='lexnote_save()'>Save</div>
+    <div id='lexnote_cancel_button' style='float: right' onclick='toggle_notes()'>X</div>
+    <h2 class='tabtitle'>Lexical Notes</h2>
+    <div id='lexical_notes_wrapper'><textarea id="lexical_note"></textarea></div>
+</div>
+
+<div id='add_words_tab' class='tooltab'>
+    <div id='add_words_form' style='float: left'>
+        <input id='add_words_add_button' type='button' onclick='add_words_add()' value='Add' />
+        to version <select id='add_words_version_select' class='mph_select'></select>
+        using lexicon <select id='add_words_lexicon_select' class='mph_select'></select>
+    </div>
+    <div id='add_words_cancel_button' style='float: right' onclick='toggle_add_words()'>X</div>
+    <p class='tabtitle'>Add new content below. It will be automatically assigned ids.</p>
+    <div id='add_words_wrapper'><textarea id="add_words_textarea"></textarea></div>
+</div>
+
+<div id='translate_tab' class='tooltab'>
+    <div id='translate_cancel_button' style='float: right' onclick='toggle_translate()'>X</div>
+    <p class='tabtitle'>Paste content below.</p>
+    <textarea id="translate_input"></textarea>
+    <span id='translate_button' onclick='do_translate()'>Translate</span>
+    to <select id='translate_version_select' class='mph_select'></select>
+    <textarea id="translate_output"></textarea>
+</div>
+
+<div id='select_lemma_tab' class='tooltab'>
+    <div id='select_lemma_cancel_button' style='float: right' onclick='toggle_select_lemma()'>X</div>
+    <p class='tabtitle'>Select an existing lemma.</p>
+    <div id='select_lemma_options'></div>
+</div>
+
+<div id='alter_parsing_tab' class='tooltab'>
+    <div id='alter_parsing_options'></div>
+    <div id='parsing_save_button' style='text-align: center; font-variant: small-caps;' onclick='parsing_save()'>save</div>
+</div>
+
+<div id='version_tab' class='tooltab'>
+    <div class="centerer">
+        <div id="loginform">
+            Email:&nbsp;<input type="text" id="email" /><br />
+            Password:&nbsp;<input type="password" id="password" /><br />
+            <span class='login_button' onclick='login_pass()'>Log in</span>
+        </div>
+        <div id='version_selector'>
+            <p id='reload_versions_button' onclick='reload_with_new_versions()'>Reload with new selections</p>
+            <div id='versions'></div>
+        </div>
+    </div>
+</div>
+
+<div id="footer">
+    <div id="text_tools">
+        <span id="mark_diffs_toggle" onclick="toggle_mark_diffs()" title="Mark diffs">0</span>
+        <span class="add_words_toggle" onclick="toggle_add_words()" title="Add words">+</span>
+        <span id="translate_toggle" onclick="toggle_translate()" title="Translate">?</span>
+        <span id="lexical_note_toggle" onclick="toggle_notes()" title="Notes">&#8224;</span>
+    </div>
+    <div id="text_editing">
+        <span id="word" contenteditable="true" onkeydown="return word_keydown(event)" title="this version"></span>
+        <span class="open_entry_button" onclick='open_entry({"text": get_text($("word"))});'
+            title="Concordance for this word form">*</span>
+        <span>&nbsp;&middot;&nbsp;</span>
+
+        <span id="original" title="original"></span>
+        <span class="open_entry_button" onclick='open_entry({"original": get_text($("original"))});'
+            title="Concordance for this word form">*</span><span class="perseus_link"
+            onclick='window.open("http://www.perseus.tufts.edu/hopper/morph?l=" + encodeURIComponent(get_text($("original"))));'
+            title="Perseus lookup">P</span><span class="logeion_link"
+            onclick='window.open("http://logeion.uchicago.edu/index.html#" + encodeURIComponent(get_text($("original"))));'
+            title="Logeion lookup">L</span>
+        <span>&nbsp;<span id="open_lemma_button" onclick="toggle_select_lemma();"
+                     title="Select an existing lemma">&#8714;</span>&nbsp;</span>
+
+        <span id="lemma" contenteditable="true" onkeydown="return lemma_keydown(event)" title="lemma"></span>
+        <span class="open_entry_button" onclick='open_entry({"lemma": get_text($("lemma"))});'
+            title="Concordance for this lemma">*</span><span class="perseus_link"
+            onclick='window.open("http://www.perseus.tufts.edu/hopper/morph?l=" + encodeURIComponent(get_text($("lemma"))));'
+            title="Perseus lookup">P</span><span class="logeion_link"
+            onclick='window.open("http://logeion.uchicago.edu/index.html#" + encodeURIComponent(get_text($("lemma"))));'
+            title="Logeion lookup">L</span>
+    </div>
+    <div id="text_parsing">
+        <span id="parsing" onclick="toggle_alter_parsing();"></span>
+    </div>
+</div>
+
+</body>
+</html>

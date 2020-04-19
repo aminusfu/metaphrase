@@ -1,0 +1,366 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <title>&#xd79;Works</title>
+    <meta name="viewport" content="initial-scale=0.5">
+    <link rel="stylesheet" type="text/css" href="/ui/common.css" />
+    <link rel="stylesheet" type="text/css" href="/ui/versions.css" />
+
+<style type='text/css'>
+
+#add_work_button, #add_section_button {
+    cursor: pointer;
+}
+
+#workbench {
+    padding: 1em;
+}
+
+#workstable th {
+    font-weight: normal;
+    text-align: right;
+    vertical-align: top;
+    padding: 0.5em;
+    white-space: nowrap;
+}
+
+.work {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.section {
+    background-color: #666666;
+    float: left;
+    margin: 0;
+    padding: 0.25em;
+    min-width: 1em;
+    text-align: center;
+    border: 1px solid black;
+}
+
+.section a {
+    cursor: pointer;
+    color: inherit;
+    text-decoration: none;
+}
+
+.selected_work_peer {
+    border-bottom: 2px dotted #FFFF00;
+}
+
+.selected_work {
+    /* This must be after .selected_work_peer or the solid line won't override. */
+    border-bottom: 2px solid #FFFF00;
+}
+
+#work_tools {
+    position: absolute;
+    top: 0;
+    right: 1em;
+}
+
+#work_editing {
+    cursor: default;
+}
+
+</style>
+
+<script type="text/javascript" src="/ui/json2.js"></script>
+<script type="text/javascript" src="/ui/common.js"></script>
+<script type="text/javascript">
+
+var api_root = "/api/";
+
+var works = {};
+var worksorder = [];
+
+//                                   POPULATE                                   //
+
+function populate_works() {
+    var worksdiv = $("works");
+    worksdiv.innerHTML = "";
+    var workstable = document.createElement("table");
+    workstable.id = "workstable";
+    worksdiv.appendChild(workstable);
+
+    var h = http("GET", api_root + "versions/" + versions[0] + "/", true);
+    h[200] = function(h) {
+        var r = JSON.parse(h.responseText);
+        works = {};
+        for (var key in r["index"]) {
+            works[segment(key, -2)] = r["index"][key];
+        };
+        worksorder = [];
+        for (var i=0; i < r["order"].length; i++) {
+            worksorder.push(segment(r["order"][i], -2));
+        }
+        for (var w=0; w < worksorder.length; w++) {
+            workstable.appendChild(create_work_row(worksorder[w], versions[0]));
+        };
+
+        var add_work_row = document.createElement("tr");
+        add_work_row.id = "add_work_row";
+        var add_work_th = document.createElement("th");
+        var add_work_span = document.createElement("span");
+        add_work_span.id = "add_work_button";
+        add_work_span.onclick = add_work
+        add_work_span.title = "Add a work";
+        set_text(add_work_span, "+");
+        add_work_th.appendChild(add_work_span);
+        add_work_row.appendChild(add_work_th);
+        workstable.appendChild(add_work_row);
+    }
+    h.send();
+}
+
+function create_work_row(workid, version) {
+    var work = works[workid];
+
+    var workrow = document.createElement("tr");
+    var workth = document.createElement("th");
+    workrow.appendChild(workth);
+    var workspan = document.createElement("span");
+    set_text(workspan, work["name"]);
+    workspan.className = "work";
+    workspan.id = workid + "-" + version;
+    workspan.onclick = click_work;
+    workth.appendChild(workspan);
+
+    var sections = work["sections"];
+    var sectionstd = document.createElement("td");
+    for (var i=0; i < sections.length; i++) {
+        sectionstd.appendChild(
+            create_section_div(workid, sections[i])
+        );
+    }
+    workrow.appendChild(sectionstd);
+    return workrow;
+}
+
+function create_section_div(work_id, section) {
+    var sectiondiv = document.createElement("div");
+    sectiondiv.className = "section";
+
+    var anchor = document.createElement("a");
+    anchor.href = "/" + work_id + "/" + section + "/" + window.location.search;
+    // TODO: allow section ids to have translations too
+    set_text(anchor, section);
+    sectiondiv.appendChild(anchor);
+
+    return sectiondiv
+}
+
+//                                   SELECT                                   //
+
+var selected_work = null;
+var selected_version = null;
+function work_from_id(workid) { return associate(["workid", "version"], workid.split("-")); }
+
+function click_work(e) {
+    e = e || window.event;
+    select_work(e.target || e.srcElement);
+    e.stopPropagation ? e.stopPropagation() : (e.cancelBubble = true)
+}
+
+function select_work(workhandle) {
+    var workspans = document.getElementsByClassName("work");
+
+    // Unmark any previous selection.
+    for (var i=0; i < workspans.length; i++) {
+        var selwork = workspans[i];
+        selwork.classList.remove("selected_work");
+        selwork.classList.remove("selected_work_peer");
+    }
+
+    if (workhandle === null) {
+        selected_work = null;
+        set_text($("work"), "");
+        // set_work_note("");
+        set_selected_version(null);
+        $("footer").style.visibility = 'hidden';
+    } else {
+        selected_work = workhandle.id;
+        var selection = work_from_id(workhandle.id);
+
+        for (var i=0; i < workspans.length; i++) {
+            var work = workspans[i];
+            if (work.id == selected_work) {
+                work.classList.add("selected_work");
+            } else if (work.id.split('-')[0] == selection.workid) {
+                work.classList.add("selected_work_peer");
+            }
+        }
+
+        set_text($("work"), get_text(workhandle));
+
+        // var worknote = work_note_textt(selection.version, selection.workid);
+        // set_work_note(worknote);
+        set_selected_version(selection.version);
+        $("footer").style.visibility = 'visible';
+    }
+
+    return false;
+}
+
+//                                   EDIT                                   //
+
+function update_selected_work(newname) {
+    if (version_is_locked(selected_version)) {
+        set_status("Cannot edit. The '" + selected_version + "' version is locked.", 5000, "#CC0000");
+        return;
+    }
+
+    var selection = work_from_id(selected_work);
+    var url = api_root + "versions/" + selected_version + "/";
+    var h = http("PATCH", url, true, "Saving...");
+    // Make a local copy of the selected work so that if the user
+    // changes the selection while we're waiting for the async call
+    // to the server, we won't update the wrong entries.
+    var selwork = selected_work;
+    h[204] = function(h) {
+        works[selection.workid]["name"] = newname;
+
+        var workspans = document.getElementsByClassName("work");
+        for (var i=0; i < workspans.length; i++) {
+            var work = workspans[i];
+            if (work.id == selwork) set_text(work, newname);
+        };
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    var index = {};
+    index[selection.workid + "/"] = {"name": newname};
+    h.send(JSON.stringify({
+        "element": "shoji:catalog",
+        "index": index
+    }));
+}
+
+function work_keydown(e) {
+    e = e || window.event;
+    switch (e.keyCode) {
+        case 13: // enter
+            if (selected_work === null || $("work").disabled) return;
+
+            update_selected_work(get_text($("work")));
+            return false;
+    }
+}
+
+function add_work() {
+    // TODO: replace this with an overlay?
+    var new_work_id = window.prompt("Please enter an id for the new work. This will be used in URLs and the API.");
+    if (new_work_id === null) return;
+
+    // Make a copy so we can mutate it safely
+    var index = {};
+    index[new_work_id + "/"] = {"name": "New Work", "sections": []};
+
+    var url = api_root + "versions/" + versions[0] + "/";
+    var h = http("PATCH", url, true, "Creating new work...");
+    h[204] = function(h) {
+        works[new_work_id] = index[new_work_id + "/"];
+
+        var workrow = create_work_row(new_work_id, versions[0]);
+        $('workstable').insertBefore(workrow, $('add_work_row'));
+        workrow.scrollIntoView({"behavior": "smooth", "block": "start"});
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({
+        "element": "shoji:catalog",
+        "index": index
+    }));
+}
+
+//                                 ADD SECTION                                  //
+
+function add_section() {
+    // TODO: replace this with an overlay?
+    var new_section_id = window.prompt("Please enter an id for the new section. This will be used in URLs and the API.");
+    if (new_section_id === null) return;
+
+    // Make a copy so we can mutate it safely
+    var selworkid = work_from_id(selected_work).workid;
+    var newsections = works[selworkid]["sections"].slice(0);
+    newsections.push(new_section_id);
+    var index = {};
+    index[selworkid + "/"] = {"sections": newsections};
+
+    var url = api_root + "versions/" + versions[0] + "/";
+    var h = http("PATCH", url, true, "Creating new section...");
+    h[204] = function(h) {
+        works[selworkid]["sections"].push(new_section_id);
+
+        var workspans = document.getElementsByClassName("work");
+        $(selected_work).parentNode.nextSibling.appendChild(
+            create_section_div(selworkid, new_section_id)
+        );
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({
+        "element": "shoji:catalog",
+        "index": index
+    }));
+}
+
+//                                 OTHER                                  //
+
+function init() {
+    fill_version_header();
+    populate_versions();
+    if (versions.length > 0) {
+        set_selected_version(versions[0]);
+        populate_works();
+    }
+}
+
+</script>
+<script type="text/javascript" src="/ui/versions.js"></script>
+</head>
+
+<body onLoad="init()">
+<div id='header'>
+    <div id="status"></div>
+    <div id='page_title'>Works</div>
+    <div>
+        <span id='versions_header' onclick="toggle_select_versions()" title="Click to select versions"></span>
+    </div>
+</div>
+
+<div id='fatal_error'>
+    <h2 id='fatal_error_title'></h2>
+    <p style='float: right'><input type="button" value="Close" onClick="remove_fatal()" /></p>
+    <p id='fatal_error_msg'></p>
+</div>
+
+<div id="workbench" tabindex="-1" onclick="select_work(null)">
+    <div id='works'></div>
+</div>
+
+<div id='version_tab' class='tooltab'>
+    <div class="centerer">
+        <div id="loginform">
+            Email:&nbsp;<input type="text" id="email" /><br />
+            Password:&nbsp;<input type="password" id="password" /><br />
+            <span class='login_button' onclick='login_pass()'>Log in</span>
+        </div>
+        <div id='version_selector'>
+            <p id='reload_versions_button' onclick='reload_with_new_versions()'>Reload with new version selections</p>
+            <div id='versions'></div>
+        </div>
+    </div>
+</div>
+
+<div id="footer">
+    <div id="work_tools">
+        <span id="add_section_button" onclick="add_section()" title="Add a section to this work">+</span>
+        <span id="work_note_toggle" onclick="toggle_notes()" title="Notes">&#8224;</span>
+    </div>
+    <div id="work_editing">
+        <span id="work" contenteditable="true" onkeydown="return work_keydown(event)"></span>
+    </div>
+</div>
+
+</body>
+</html>

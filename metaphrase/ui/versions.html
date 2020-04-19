@@ -1,0 +1,526 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <title>Metaphrase: Versions</title>
+    <meta name="viewport" content="initial-scale=0.5">
+    <link rel="stylesheet" type="text/css" href="/ui/common.css" />
+
+<style type='text/css'>
+
+#version_nav {
+    float: right;
+}
+
+#version_nav input {
+    font: 14pt Verdana, sans-serif;
+    cursor: pointer;
+}
+
+.version {
+    background-color: black;
+    padding: 0;
+    margin: 1em 0;
+    border: 1px solid #9999CC;
+}
+
+.version_header {
+    border-bottom: 1px solid #9999CC;
+    padding: 0.25em 0;
+    height: 2.5em;
+    background-color: #222233;
+}
+
+.version_handle {
+    float: left;
+    margin: 0;
+    cursor: pointer;
+    padding: 0.5em 0.75em;
+}
+
+.version_label {
+    float: left;
+    cursor: pointer;
+    padding: 0.5em;
+    border-radius: 0.5em;
+}
+
+.selected_version {
+    background-color: #9999CC;
+    color: black;
+}
+
+.copy_button {
+    float: right;
+    cursor: pointer;
+    padding: 0.5em;
+    border-radius: 0.5em;
+    margin: 0 0.5em;
+}
+
+.auth_div {
+    clear: both;
+    margin: 0.25em;
+    padding: 0;
+}
+
+.auth_table {
+    margin: 1em 0 0 0;
+    padding: 0;
+    border-collapse: collapse;
+    border: none;
+}
+
+.auth_table td {
+    padding: 0.25em;
+    border: none;
+}
+
+.auth_enabled {
+    border-radius: 0.5em;
+    color: white;
+    cursor: pointer;
+    padding: 0.25em 0.5em;
+}
+
+.auth_disabled {
+    border-radius: 0.5em;
+    color: #CCCCCC;
+    padding: 0.25em 0.5em;
+    cursor: default;
+}
+
+.auth_selected {
+    background-color: #9999CC;
+    color: black;
+}
+
+.auth_remove, .auth_new {
+    cursor: pointer;
+    padding: 0.25em;
+}
+
+#new_version_button {
+    font: 16pt Gentium, Verdana, sans-serif;
+    cursor: pointer;
+    padding: 0.5em;
+    border: none;
+    border-radius: 0.5em;
+    background-color: #9999CC;
+    color: black;
+}
+
+</style>
+
+<script type="text/javascript" src="/ui/json2.js"></script>
+<script type="text/javascript" src="/ui/common.js"></script>
+<script type="text/javascript">
+
+var work = segment(window.location.href, 3);
+var work_api = "/api/works/" + work + "/";
+
+var params = queryParams();
+
+var versions = params['versions'];
+if (versions === undefined || versions === null) versions = "";
+versions = versions.split(",");
+
+function label_click() {
+    this.classList.toggle("selected_version");
+}
+
+function copy_click() {
+    var new_name = window.prompt("Enter the name of the new version copy.");
+    if (new_name === null) return;
+
+    var url = work_api + "versions/" + this.version_name + "/copies/";
+    var h = http("POST", url, true, "Copying...");
+    h[201] = function(h) {
+        var auth = JSON.parse(h.responseText);
+        var bar = version_bar(new_name, "version_label selected_version", auth);
+        $("versions").appendChild(bar);
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({"name": new_name}));
+}
+
+function return_to_referrer() {
+    var href = document.referrer;
+    if (href == "") href = "/" + work + "/";
+
+    var selected_versions = [];
+    var vnodes = $("versions").getElementsByClassName("selected_version");
+    for (var i=0; i < vnodes.length; i++) {
+        selected_versions.push(get_text(vnodes[i]));
+    }
+
+    // Split up the querystring
+    var url = associate(["path", "qs"], href.split("?", 1));
+    if (url["qs"] === undefined) url["qs"] = "";
+    url["qsargs"] = url["qs"].split("&");
+
+    // Replace or append the "versions" param
+    var found = false;
+    for (var i=0; i < url["qsargs"].length; i++) {
+        var arg = associate(["key", "value"], url["qsargs"][i].split("="));
+        if (arg["key"] == "versions") {
+            url["qsargs"][i] = "versions=" + selected_versions.join(",");
+            found = true;
+            break;
+        }
+    }
+    if (!found) url["qsargs"].push("versions=" + selected_versions.join(","));
+
+    // Recombine the querystring
+    href = url["path"] + "?" + url["qsargs"].join("&");
+
+    window.location.href = href;
+}
+
+version_catalog = undefined;
+
+function populate_versions() {
+    var h = http("GET", work_api + "versions/", true);
+    h[200] = function(h) {
+        version_catalog = JSON.parse(h.responseText);
+
+        available_versions = {};
+        for (var version_url in version_catalog.index) {
+            available_versions[segment(version_url, -2)] = version_catalog.index[version_url];
+        }
+
+        var vs = $("versions");
+        vs.innerHTML = "";
+
+        var seen = [];
+
+        // Add existing selections
+        for (var i=0; i < versions.length; i++) {
+            var version = versions[i];
+            var avail_version = available_versions[version];
+            if (avail_version === undefined) continue;
+
+            var auth = avail_version["auth"];
+
+            var bar = version_bar(version, "version_label selected_version", auth);
+            vs.appendChild(bar);
+            seen.push(version);
+        }
+
+        // Add available selections
+        for (var version in available_versions) {
+            if (seen.indexOf(version) != -1) continue;
+
+            var auth = available_versions[version]["auth"];
+
+            var bar = version_bar(version, "version_label", auth);
+            vs.appendChild(bar);
+        }
+    }
+    h.send();
+}
+
+
+function version_bar(version_name, labelclassName, auth) {
+    bar = document.createElement("div");
+    bar.className = "version";
+
+    var header = document.createElement("div");
+    header.className = "version_header";
+    bar.appendChild(header);
+
+    var handle = document.createElement("div");
+    handle.className = "version_handle";
+    set_text(handle, "⇳");
+    header.appendChild(handle);
+
+    var label_div = document.createElement("div");
+    label_div.className = labelclassName;
+    set_text(label_div, version_name);
+    label_div.onclick = label_click;
+    header.appendChild(label_div);
+
+    var lock_div = document.createElement("div");
+    lock_div.className = "lock_button";
+    set_text(lock_div, "=");
+    lock_div.onclick = lock_click;
+    lock_div.version_name = version_name;
+    header.appendChild(lock_div);
+
+    var copy_div = document.createElement("div");
+    copy_div.className = "copy_button";
+    set_text(copy_div, "Copy");
+    copy_div.onclick = copy_click;
+    copy_div.version_name = version_name;
+    header.appendChild(copy_div);
+
+    if (auth !== null) {
+        var auth_div = document.createElement("div");
+        auth_div.className = "auth_div";
+        var auth_table = document.createElement("table");
+        auth_table.className = "auth_table";
+
+        // Add rows for existing users
+        var users = sort(keys(auth));
+        for (var i=0; i < users.length; i++) {
+            auth_table.appendChild(
+                user_row(version_name, users[i], auth[users[i]])
+            );
+        }
+
+        // Add a row for adding a user
+        // Return a TR element containing auth controls for the given user.
+        var row = document.createElement("tr");
+
+        // Add a TD with a '+' button to add a new user.
+        var t = document.createElement("td");
+        var r = document.createElement("span");
+        r.className = "auth_new";
+        set_text(r, "+");
+        r.version_name = version_name;
+        r.onclick = new_user_auth;
+        t.appendChild(r);
+        row.appendChild(t);
+
+        // Add a spacer TD.
+        var t = document.createElement("td");
+        t.className = "user";
+        row.appendChild(t);
+
+        // Add a spacer TD.
+        var t = document.createElement("td");
+        t.className = "role";
+        row.appendChild(t);
+
+        auth_table.appendChild(row);
+
+        auth_div.appendChild(auth_table);
+        bar.appendChild(auth_div);
+    }
+
+    return bar;
+}
+
+function new_version() {
+    var vname = window.prompt("Enter a name for the new version:");
+    if (vname === null) return;
+    var vindex = {};
+    vindex[vname + "/"] = {"auth": {}}
+
+    var url = work_api + "versions/";
+    var h = http("PATCH", url, true, "Creating new version...");
+    h[204] = function(h) {
+        window.location.reload();
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({
+        "element": "shoji:catalog",
+        "index": vindex
+    }));
+}
+
+function user_row(version_name, user, user_role) {
+    // Return a TR element containing auth controls for the given user.
+    var row = document.createElement("tr");
+
+    // Add a TD with an 'x' button to remove the user from auth completely.
+    var t = document.createElement("td");
+    if (version_catalog.username != user) {
+        var r = document.createElement("span");
+        r.className = "auth_remove";
+        set_text(r, "x");
+        r.username = user;
+        r.version_name = version_name;
+        r.onclick = remove_user_auth;
+        t.appendChild(r);
+    }
+    row.appendChild(t);
+
+    // Add a TD with the name of the user.
+    var t = document.createElement("td");
+    t.className = "user";
+    set_text(t, user);
+    row.appendChild(t);
+
+    // Add a TD with buttons for each available role.
+    var t = document.createElement("td");
+    t.className = "role";
+    // But don't allow admins to switch themselves to any other role.
+    var self_admin = (user == version_catalog.username && user_role == "admin");
+    for (var each_role in {"none": 0, "reader": 0, "writer": 0, "admin": 0}) {
+        var r = document.createElement("span");
+        if (self_admin) {
+            r.classList.add("auth_disabled");
+        } else {
+            r.classList.add("auth_enabled")
+            r.onclick = click_role;
+        }
+        if (each_role == user_role) r.classList.add("auth_selected");
+        set_text(r, each_role);
+        r.username = user;
+        r.version_name = version_name;
+        t.appendChild(r);
+    }
+    row.appendChild(t);
+
+    return row;
+}
+
+
+function click_role() {
+    // Bind this to a local so it's available inside h[204]
+    var role = this;
+
+    // Make a copy of the catalog for mutation
+    var catalog = JSON.parse(JSON.stringify(version_catalog));
+    for (var k in catalog.index) {
+        if (segment(k, -2) == role.version_name) {
+            catalog.index[k]["auth"][role.username] = get_text(role);
+        } else {
+            delete catalog.index[k];
+        }
+    }
+
+    var url = work_api + "versions/";
+    var h = http("PATCH", url, true, "Saving...");
+    h[204] = function(h) {
+        version_catalog = catalog;
+
+        // Mark the proper option as selected
+        var all_roles = role.parentNode.childNodes;
+        for (var i=0; i < all_roles.length; i++) {
+            var role_span = all_roles[i];
+            if (role_span === role) {
+                role_span.classList.add("auth_selected");
+            } else {
+                role_span.classList.remove("auth_selected");
+            }
+        }
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify(catalog));
+}
+
+
+function new_user_auth() {
+    // Add a new auth entry. This won't actually PATCH the resource
+    // until the user clicks on a role.
+
+    // Obtain the name of the user.
+    // TODO: make this a select instead.
+    var user = window.prompt("Enter the name of the user (or 'public' for anonymous permissions).");
+    if (user === null) return;
+
+    var thisrow = this.parentNode.parentNode;
+    var newrow = user_row(this.version_name, user, "");
+    thisrow.parentNode.insertBefore(newrow, thisrow);
+}
+
+
+function remove_user_auth() {
+    // Remove an auth entry.
+
+    var thisrow = this.parentNode.parentNode;
+    thisrow.parentNode.removeChild(thisrow);
+
+    // Make a copy of the catalog for mutation
+    var catalog = JSON.parse(JSON.stringify(version_catalog));
+    for (var k in catalog.index) {
+        if (segment(k, -2) == this.version_name) {
+            delete catalog.index[k]["auth"][this.username];
+        } else {
+            delete catalog.index[k];
+        }
+    }
+
+    var url = work_api + "versions/";
+    var h = http("PATCH", url, true, "Saving...");
+    h[204] = function(h) {
+        version_catalog = catalog;
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify(catalog));
+}
+
+
+var dragged_element = null;
+
+function doc_mousedown(e) {
+    if (e == null) e = window.event; 
+    var target = e.target != null ? e.target : e.srcElement;
+    if (!target.classList.contains('version_handle')) return true;
+
+    dragged_element = target.parentNode.parentNode;
+    document.onmousemove = doc_mousemove;
+
+    // cancel out any text selections
+    document.body.focus();
+    // prevent text selection in IE
+    document.onselectstart = function () { return false; };
+    // prevent IE from trying to drag an image
+    dragged_element.ondragstart = function() { return false; };
+
+    // prevent text selection (except IE)
+    return false;
+}
+
+function doc_mousemove(e) {
+    if (e == null) e = window.event;
+
+    var dragged_parent = $("versions");
+    var vernodes = dragged_parent.getElementsByClassName("version");
+    for (var i=0; i < vernodes.length; i++) {
+        var vernode = vernodes[i];
+        if (vernode === dragged_element) continue;
+
+        var ver_begin = vernode.getClientRects()[0];
+        if (e.clientY < ver_begin.top + ver_begin.height) {
+            // Move the dragged element
+            dragged_parent.removeChild(dragged_element);
+            dragged_parent.insertBefore(dragged_element, vernode);
+            break;
+        }
+    }
+}
+
+function doc_mouseup(e) {
+    if (dragged_element != null) {
+        document.onmousemove = null;
+        document.onselectstart = null;
+        dragged_element.ondragstart = null;
+        dragged_element = null;
+    }
+}
+
+function init() {
+    populate_versions();
+    document.onmousedown = doc_mousedown;
+    document.onmouseup = doc_mouseup;
+}
+
+</script>
+</head>
+
+<body onLoad="init()">
+<div id='header'>
+    <div id="status"></div>
+    <div id="version_nav"><input type="button" onclick="return_to_referrer()" value="Return" /></div>
+    <div id='page_title'>Versions</div>
+</div>
+
+<div id='fatal_error'>
+    <h2 id='fatal_error_title'></h2>
+    <p style='float: right'><input type="button" value="Close" onClick="remove_fatal()" /></p>
+    <p id='fatal_error_msg'></p>
+</div>
+
+<div id='workbench'>
+    <div id='versions'></div>
+</div>
+
+<div id='footer'>
+    <input type="button" id="new_version_button" onclick="new_version()" value="New..." />
+</div>
+
+</body>
+</html>

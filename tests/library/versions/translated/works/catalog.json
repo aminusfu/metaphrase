@@ -1,0 +1,6 @@
+{
+    "order": ["1Co"],
+    "index": {
+        "1Co": {"name": "1 Corinthians", "sections": ["1", "2"]}
+    }
+}

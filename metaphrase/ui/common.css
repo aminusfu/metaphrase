@@ -1,0 +1,211 @@
+@font-face {
+    font-family: "GentiumPlus";
+    src: url('/ui/GentiumPlus-R.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* use Gentium Plus - Regular in .woff format */
+@font-face {
+    font-family: "GentiumPlusW";
+    src: url('/ui/GentiumPlus-R.woff');
+}
+/* use Gentium Plus - Italic in .woff format */
+@font-face {
+    font-family: "GentiumPlusW";
+    font-style: italic;
+    src: url('/ui/GentiumPlus-I.woff');
+}
+
+* {
+    outline: none;
+}
+
+html {
+    background-color: black;
+    font: 12pt GentiumPlusW, serif;
+    color: white;
+}
+
+html, body {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: 0;
+    padding: 0;
+    overflow-y: hidden;
+}
+
+a {
+    cursor: pointer;
+    background-color: transparent;
+    color: white;
+    text-decoration: none;
+}
+
+#header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    height: 4em;
+    font: 12pt GentiumPlusW, serif;
+    margin: 0;
+    padding: 0.5em 2em;
+    background-color: black;
+    color: white;
+    border: none;
+    overflow: hidden;
+    vertical-align: middle;
+    text-align: center;
+}
+
+#page_title {
+    font: 24pt GentiumPlusW, serif;
+    vertical-align: middle;
+    margin: 0;
+    padding: 0;
+}
+
+#status {
+    position: absolute;
+    top: 0.5em;
+    left: 0.5em;
+    height: 3.5em;
+    font: 14pt bold Times, serif;
+    text-align: center;
+    vertical-align: bottom;
+    margin: 0;
+    padding: 0 1em;
+}
+
+#status p {
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    vertical-align: bottom;
+    color: white;
+}
+
+#fatal_error {
+    visibility: hidden;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    background-color: #FFFFFF;
+    border: 2px solid DarkRed;
+    padding: 2em;
+    overflow: auto;
+    z-index: 10;
+}
+
+#fatal_error_title {
+    font: 700 18pt GentiumPlusW, serif;
+    border-bottom: 1px solid DarkRed;
+    color: DarkRed;
+}
+
+#workbench {
+    position: absolute;
+    top: 4em;
+    bottom: 3em;
+    left: 3px;
+    right: 3px;
+    background-color: #111111;
+    font: 16pt GentiumPlusW, serif;
+    vertical-align: top;
+    color: white;
+    text-align: justify;
+    overflow-y: scroll;
+    padding: 0;
+    margin: 0;
+    border-bottom: 1px solid #333333;
+}
+
+#footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 0;
+    background-color: black;
+    color: white;
+    vertical-align: bottom;
+    text-align: center;
+    font: 16pt GentiumPlusW, serif;
+    height: 3em;
+    visibility: hidden;
+}
+
+.tooltab {
+    position: absolute;
+    font: 16pt GentiumPlusW, serif;
+    top: 4em;
+    bottom: 3em;
+    left: 0;
+    right: 0;
+    background-color: black;
+    padding: 1em 2em;
+    margin: 0;
+    overflow-y: scroll;
+    z-index: 7;
+    color: white;
+    text-align: center;
+    display: none;
+    opacity: 0.0;
+}
+
+.tabtitle {
+    font: 16pt GentiumPlusW, serif;
+    background-color: black;
+    margin: 0;
+    padding: 0.25em;
+}
+
+.mph_select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    outline: none;
+    background-color: #111111;
+    color: white;
+    border: none;
+    cursor: pointer;
+    margin: 0;
+    padding: 0;
+}
+
+::-webkit-scrollbar {
+    width: 0.5em;
+    background-color: transparent;
+}
+::-webkit-scrollbar-corner {
+    background-color: transparent;
+}
+::-webkit-scrollbar-button {
+    height: 0;
+    background-color: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background-color: #666666;
+    border-radius: 0.25em;
+}
+
+.note_box {
+    margin: 0;
+    padding: 0.25em;
+    border: 1px solid #9999CC;
+    height: 4em;
+    overflow-y: scroll;
+    text-align: left;
+}
+
+.note_box_editable {
+    border: 2px solid #9999CC;
+}
+

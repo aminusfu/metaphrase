@@ -1,0 +1,225 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <title>Metaphrase</title>
+
+<style type='text/css'>
+
+@font-face {
+    font-family: "",
+    src: url('/ui/GentiumPlus-R.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font: 10pt Verdana, sans-serif;
+    background-color: black;
+    color: white;
+}
+
+body::-webkit-scrollbar {
+    display: none;
+}
+
+#header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    height: 2em;
+    font: 12pt Verdana, sans-serif;
+    margin: 0;
+    padding: 1em 2em 1em 1.5em;
+    background-color: black;
+    color: white;
+    border: none;
+    overflow: hidden;
+    vertical-align: bottom;
+}
+
+#header h1 {
+    font: 18pt Verdana, sans-serif;
+    margin: 0;
+}
+
+h2 {
+    font: 16pt Verdana, sans-serif;
+    margin: 0;
+}
+
+#status {
+    font: 14pt bold Times, serif;
+    text-align: center;
+    vertical-align: bottom;
+    margin: 0;
+    padding: 0 1em;
+}
+
+#status p {
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    vertical-align: bottom;
+    color: white;
+}
+
+#version_nav {
+    float: right;
+}
+
+#version_nav input {
+    font: 14pt Verdana, sans-serif;
+    cursor: pointer;
+}
+
+#fatal_error {
+    visibility: hidden;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    background-color: #FFFFFF;
+    border: 2px solid DarkRed;
+    padding: 2em;
+    overflow: auto;
+    z-index: -1;
+}
+
+#fatal_error_title {
+    font: 700 18pt Verdana, sans-serif;
+    border-bottom: 1px solid DarkRed;
+    color: DarkRed;
+}
+
+#main {
+    padding: 0;
+    margin: 3em 2em 2em 3em;
+    font: 16pt Gentium, Verdana, sans-serif;
+    vertical-align: top;
+    background-color: black;
+    color: white;
+    text-align: justify;
+}
+
+.initial_header {
+    clear: both;
+    font-weight: normal;
+    padding: 1em 0 0 0;
+    border-bottom: 1px solid #FFFFCC;
+}
+
+.entry {
+    float: left;
+    margin: 0;
+    padding: 0.25em;
+    min-width: 1em;
+    text-align: center;
+    border: none;
+}
+
+.entry a {
+    cursor: pointer;
+    color: inherit;
+    text-decoration: none;
+}
+
+</style>
+
+<script type="text/javascript" src="/ui/json2.js"></script>
+<script type="text/javascript" src="/ui/common.js"></script>
+<script type="text/javascript">
+
+var version = segment(window.location.href, 4);
+var api_root = "/api/";
+
+
+function populate_entries() {
+    var h = http("GET", api_root + "versions/" + version + "/concordance/", true);
+    h[200] = function(h) {
+        var j = JSON.parse(h.responseText);
+
+        // Bucket the wordforms by initial character and sort lexically.
+        var alphagroups = {};
+        var counts = {};
+        for (var wordform_url in j.index) {
+            var wordform = decodeURIComponent(segment(wordform_url, -2));
+            counts[wordform] = j.index[wordform_url]["count"];
+            var initial = wordform.charAt(0);
+            if (alphagroups[initial] === undefined) alphagroups[initial] = [];
+            alphagroups[initial].push(wordform);
+        }
+        for (var initial in alphagroups) alphagroups[initial].sort();
+        var groupkeys = keys(alphagroups);
+        groupkeys.sort();
+
+        var entries = $("entries");
+        entries.innerHTML = "";
+
+        for (var itl=0; itl < groupkeys.length; itl++) {
+            var initial = groupkeys[itl];
+
+            var group = alphagroups[initial];
+            var initial_div = document.createElement("div");
+            initial_div.className = "initial";
+
+            var header = document.createElement("div");
+            header.className = "initial_header";
+            set_text(header, initial);
+            initial_div.appendChild(header);
+
+            maxchars = 1;
+            for (var i=0; i < group.length; i++) {
+                var wordform = group[i];
+                if (wordform.length > maxchars) maxchars = wordform.length;
+
+                var entry = document.createElement("div");
+                entry.className = "entry";
+
+                var anchor = document.createElement("a");
+                anchor.href = encodeURIComponent(wordform) +
+                              "/?versions=" + versions.join(",");
+                set_text(anchor, wordform + " (" + counts[wordform] + ")");
+                entry.appendChild(anchor);
+
+                initial_div.appendChild(entry);
+            }
+
+            entries.appendChild(initial_div);
+        }
+
+    }
+    h.send();
+}
+
+function init() {
+    populate_entries();
+}
+
+</script>
+</head>
+
+<body onLoad="init()">
+<div id='header'>
+    <h1>Metaphrase: Concordance</h1>
+    <div id="status"></div>
+</div>
+
+<div id='fatal_error'>
+    <h2 id='fatal_error_title'></h2>
+    <p style='float: right'><input type="button" value="Close" onClick="remove_fatal()" /></p>
+    <p id='fatal_error_msg'></p>
+</div>
+
+<div id='main'>
+    <h2>Index by Word Form</h2>
+    <div id='entries'></div>
+</div>
+
+</body>
+</html>

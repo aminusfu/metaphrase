@@ -1,0 +1,156 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <title>Metaphrase: Lexicon</title>
+    <meta name="viewport" content="initial-scale=0.5">
+    <link rel="stylesheet" type="text/css" href="/ui/common.css" />
+
+<style type='text/css'>
+
+h2 {
+    font: 16pt Verdana, sans-serif;
+    margin: 0;
+}
+
+#version_nav {
+    float: right;
+}
+
+#version_nav input {
+    font: 14pt Verdana, sans-serif;
+    cursor: pointer;
+}
+
+#workbench {
+    padding: 1em;
+}
+
+.initial_header {
+    clear: both;
+    font-weight: normal;
+    padding: 1em 0 0 0;
+    border-bottom: 1px solid #FFFFCC;
+}
+
+.entry {
+    float: left;
+    margin: 0;
+    padding: 0.25em;
+    min-width: 1em;
+    text-align: center;
+    border: none;
+}
+
+.entry a {
+    cursor: pointer;
+    color: inherit;
+    text-decoration: none;
+}
+
+</style>
+
+<script type="text/javascript" src="/ui/json2.js"></script>
+<script type="text/javascript" src="/ui/common.js"></script>
+<script type="text/javascript">
+
+var work = segment(window.location.href, 3);
+var work_api = "/api/works/" + work + "/";
+
+var params = queryParams();
+
+var versions = params['versions'];
+if (versions === undefined || versions === null) versions = "";
+versions = versions.split(",");
+
+function populate_entries() {
+    var h = http("GET", work_api + "lexicon/", true);
+    h[200] = function(h) {
+        var j = JSON.parse(h.responseText);
+
+        var collation = Collation(j.collation);
+
+        // Bucket the lemmas by initial character and sort lexically.
+        var alphagroups = {};
+        var counts = {};
+        for (var lemma_url in j.index) {
+            var lemma = decodeURIComponent(segment(lemma_url, -2));
+            counts[lemma] = j.index[lemma_url]["count"];
+
+            var initial = collation.collatable(lemma.charAt(0));
+
+            if (alphagroups[initial] === undefined) alphagroups[initial] = [];
+            alphagroups[initial].push(lemma);
+        }
+        var groupkeys = keys(alphagroups);
+        groupkeys.sort();
+
+        var entries = $("entries");
+        entries.innerHTML = "";
+
+        for (var itl=0; itl < groupkeys.length; itl++) {
+            var initial = groupkeys[itl];
+
+            var group = alphagroups[initial];
+            group.sort(collation.collate);
+            var initial_div = document.createElement("div");
+            initial_div.className = "initial";
+
+            var header = document.createElement("div");
+            header.className = "initial_header";
+            set_text(header, initial);
+            initial_div.appendChild(header);
+
+            maxchars = 1;
+            for (var i=0; i < group.length; i++) {
+                var lemma = group[i];
+                if (lemma.length > maxchars) maxchars = lemma.length;
+
+                var entry = document.createElement("div");
+                entry.className = "entry";
+
+                var anchor = document.createElement("a");
+                anchor.href = "/" + work + "/lexicon/" + encodeURIComponent(lemma) +
+                              "/?versions=" + versions.join(",");
+                set_text(anchor, lemma);
+                anchor.innerHTML = anchor.innerHTML + "&nbsp;(" + counts[lemma] + ")";
+                entry.appendChild(anchor);
+
+                initial_div.appendChild(entry);
+            }
+
+            entries.appendChild(initial_div);
+        }
+
+    }
+    h.send();
+}
+
+function init() {
+    populate_entries();
+}
+
+</script>
+</head>
+
+<body onLoad="init()">
+<div id='header'>
+    <div id="status"></div>
+    <div id='page_title'>Lexicon</div>
+</div>
+
+<div id='fatal_error'>
+    <h2 id='fatal_error_title'></h2>
+    <p style='float: right'><input type="button" value="Close" onClick="remove_fatal()" /></p>
+    <p id='fatal_error_msg'></p>
+</div>
+
+<div id='workbench'>
+    <h2>Index by lemma</h2>
+    <div id='entries'></div>
+</div>
+
+<div id='footer'></div>
+
+</body>
+</html>

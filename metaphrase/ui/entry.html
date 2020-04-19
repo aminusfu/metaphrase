@@ -1,0 +1,1271 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>&#xd79;</title>
+    <meta name="viewport" content="initial-scale=0.5">
+    <link rel="stylesheet" type="text/css" href="/ui/common.css" />
+    <link rel="stylesheet" type="text/css" href="/ui/versions.css" />
+<style type='text/css'>
+
+.term {
+    border-bottom: 1px dotted #FFFFCC;
+    margin: 0 0.25em;
+    padding: 0 0.125em;
+    cursor: pointer;
+}
+
+.term_attribute {
+    margin: 0;
+    padding: 0 0.25em;
+}
+
+.add_term_button {
+    cursor: pointer;
+}
+
+.selected_term, #criteria_remove_button {
+    border-bottom: 2px solid #FFFFCC;
+}
+
+.perseus_link, .logeion_link {
+    cursor: pointer;
+    font-size: 75%;
+    vertical-align: super;
+}
+
+#criteria_add_before_button, #criteria_add_after_button, #criteria_remove_button, #open_criteria_lemma_button {
+    cursor: pointer;
+}
+
+#workbench {
+    padding: 1em;
+}
+
+#nav {
+    float: right;
+    vertical-align: middle;
+    font: 18pt Verdana, sans-serif;
+}
+
+#nav a {
+    font: 14pt Verdana, sans-serif;
+    cursor: pointer;
+    border: none;
+    background-color: transparent;
+    color: white;
+    text-decoration: none;
+}
+
+.word {
+    cursor: pointer;
+   -webkit-user-select: none;
+}
+
+.selected_phrase {
+    border-bottom: 1px dotted #FFFF00;
+}
+
+.selected_word {
+    /* This must be after .selected_phrase or the solid line won't override. */
+    border-bottom: 2px solid #FFFF00;
+}
+
+.verb   { color: #FFFFCC; }
+.case_N { color: #DDDDFF; }
+.case_A { color: #FFDDBB; }
+.case_D { color: #FFBBFF; }
+.case_G { color: #DDFFDD; }
+.voice_M { font-style: italic }
+
+#passages {
+    width: 100%;
+}
+
+#passages td {
+    vertical-align: top;
+}
+
+#passages td.ref {
+    text-align: right;
+    padding: 0 1em 0 0;
+}
+
+.ref a {
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    font-weight: normal;
+}
+
+#passages td.wordform {
+    padding: 1em 0 0 0;
+    border-bottom: 1px solid #FFFFCC;
+}
+
+#text_tools {
+    position: absolute;
+    top: 0;
+    right: 1em;
+}
+
+#text_editing {
+    cursor: default;
+}
+
+#word, #lemma {
+    cursor: text;
+}
+
+.has_notes {
+    font-weight: 900;
+}
+
+#parsing {
+    cursor: pointer;
+    font: 12pt GentiumPlusW, serif;
+}
+
+.open_entry_button {
+    cursor: pointer;
+    vertical-align: top;
+    font-size: 0.75em;
+}
+
+#open_lemma_button {
+    cursor: pointer;
+    vertical-align: top;
+}
+
+#select_lemma_tab {
+    z-index: 8;
+}
+
+#select_lemma_cancel_button {
+    cursor: pointer;
+}
+
+.lemma_group {
+    clear: both;
+    font: 16pt GentiumPlusW, serif;
+    padding: 1em 0 0 0;
+    border-bottom: 1px solid #FFFFCC;
+    text-align: left;
+}
+
+.existing_lemma {
+    float: left;
+    cursor: pointer;
+    font: 16pt GentiumPlusW, serif;
+    padding: 0 0.5em;
+}
+
+#lexical_note_toggle {
+    text-align: center;
+    float: right;
+}
+
+#lexical_note_toggle, #lexnote_save_button, #lexnote_cancel_button {
+    cursor: pointer;
+}
+
+#lexical_notes_wrapper {
+    position: absolute;
+    top: 4em;
+    right: 2em;
+    bottom: 2em;
+    left: 2em;
+    margin: 0;
+    padding: 0;
+    text-align: left;
+}
+
+#lexical_note {
+    position: absolute;
+    width: 100%;
+    bottom: 0;
+    top: 0;
+    margin: 0;
+    padding: 0.25em;
+    -webkit-appearance: none;
+    outline: none;
+    background-color: black;
+    color: white;
+    border: none;
+    font: 16pt GentiumPlusW, serif;
+}
+
+#alter_criteria_options {
+    overflow-y: scroll;
+    height: 90%;
+}
+
+.alter_criteria_category_div {
+    float: left;
+    padding: 0.5em;
+    margin: 0 1em;
+}
+
+.alter_criteria_category_div h2 {
+    font: 18pt GentiumPlusW, serif;
+    margin: 0.25em;
+}
+
+.alter_criteria_category_div .mph_select {
+    height: 100%;
+    cursor: auto;
+}
+
+#criteria_apply_button {
+    font-variant: small-caps;
+    cursor: pointer;
+}
+
+</style>
+
+<script type="text/javascript" src="/ui/json2.js"></script>
+<script type="text/javascript" src="/ui/common.js"></script>
+<script type="text/javascript">
+
+function word_from_spanid(wordid) {
+    // Span ids are of the form work-section|verseid.phraseid-wordid-version|bucket|passage (whew!)
+    var pipes = wordid.split("|");
+    var word = associate(["phraseid", "wordid", "version"], pipes[1].split("-"));
+    word["work"] = pipes[0].split("-")[0];
+    word["section"] = pipes[0].split("-")[1];
+    word["entryid"] = word["work"] + "/" + word["section"] + "/" + word["phraseid"];
+    word["bucket"] = pipes[2];
+    word["passage"] = pipes[3];
+    return word
+}
+
+var api_root = "/api/";
+
+var json_criteria = decodeURIComponent(segment(window.location.href, -2));
+var base_version = decodeURIComponent(segment(window.location.href, -4));
+
+var entries = {};
+var lexical_notes = {};
+
+function parents(node) {
+    if (node.parents === null) return [];
+
+    var results = [];
+    for (var p=0; p < node.parents.length; p++) {
+        var lem = node.parents[p].lemma;
+        results.push("<a href='../" + encodeURIComponent(JSON.stringify({"lemma": lem})) +
+                     "/" + window.location.search + "'>" + lem + "</a>");
+        results = results.concat(parents(node.parents[p]));
+    }
+    return results;
+}
+
+function children(node) {
+    if (node.children === null) return [];
+
+    var results = [];
+    for (var p=0; p < node.children.length; p++) {
+        var lem = node.children[p].lemma;
+        results.push("<a href='../" + encodeURIComponent(JSON.stringify({"lemma": lem})) +
+                     "/" + window.location.search + "'>" + lem + "</a>");
+        results = results.concat(children(node.children[p]));
+    }
+    return results;
+}
+
+function load_concordance_entry() {
+    // Fetch the primary content for the page: a Shoji Entity
+    // with {passages, entries, lexical_notes} attributes.
+    // Passages: an array of match objects, each of the form: {
+    //     section: workid + "/" + sectionid + "/",
+    //     phraseid: "verse.phrase",
+    //     wordids: [wordindex, ...],
+    //     versions: {
+    //         version name: [["verse.phrase", wordindex], ...],
+    //     }
+    // }
+    // entries: a dict nested by version, then "work/section/verse.phrase"
+    var url = api_root + "versions/" + base_version + "/concordance/" + json_criteria +
+              "/" + window.location.search;
+    var h = http("GET", url, true, "Retrieving concordance");
+    h[200] = function(h) {
+        var j = JSON.parse(h.responseText)["body"];
+        var passages = j.passages;
+        entries = j.entries;
+        lexical_notes = j.lexical_notes;
+
+        var newHTML = "";
+
+        // Sadly, we may not have all results due to system limitations
+        if (j.complete) {
+            newHTML = newHTML + "<div id='numresults'>" + passages.length + " results</div>";
+        } else {
+            newHTML = newHTML + "<div id='numresults'>Showing only " + passages.length + " results due to system limitations. Please refine your query.</div>";
+        }
+
+        // Slap the immediate parents and children up top
+        if (j.family !== undefined) {
+            newHTML = newHTML + "<table class='family'>";
+            var ps = parents(j.family);
+            if (ps.length > 0) {
+                newHTML = newHTML + "<tr><th>Parents</th><td>" + ps.join(", ") + "</td></tr>";
+            }
+
+            var ch = children(j.family);
+            if (ch.length > 0) {
+                newHTML = newHTML + "<tr><th>Children</th><td>" + ch.join(", ") + "</td></tr>";
+            }
+            newHTML = newHTML + "</table>";
+        }
+
+        // Bucket the passages by word form (in the base version's lexicon).
+        // Each key is a parsing_repr and each value is an array of passage objects.
+        bucketed_passages = {};
+        for (var i=0; i < passages.length; i++) {
+            var passage = passages[i];
+
+            var parsing = parsing_repr(entries[base_version][passage.section + passage.phraseid].parsing);
+            var bucket = bucketed_passages[parsing];
+            if (bucket === undefined) {
+                bucket = [];
+                bucketed_passages[parsing] = bucket;
+            }
+
+            bucket.push(passage);
+        }
+
+        // Render the passages by bucket on the workbench.
+        newHTML = newHTML + "<table id='passages'>";
+        var wordforms_order = keys(bucketed_passages);
+        wordforms_order.sort();
+        for (var b=0; b < wordforms_order.length; b++) {
+            var form = wordforms_order[b];
+
+            var passages = bucketed_passages[form];
+            var all_texts = {};
+            var passage_rows = [];
+            for (var i=0; i < passages.length; i++) {
+                var passage = passages[i];
+                var passage_id = {
+                    "work": passage.section.split("/")[0],
+                    "section": passage.section.split("/")[1],
+                    "verse": passage.phraseid.split(".")[0],
+                    "phraseid": passage.phraseid.split(".")[1]
+                };
+
+                var vcount = 0;
+                for (var v=0; v < versions.length; v++) {
+                    // Add a table row for the excerpt from each version
+                    var version = versions[v];
+                    var order = passage.versions[version];
+                    if (order === undefined) continue;
+
+                    var excerpt = '';
+                    for (var w=0; w < order.length; w++) {
+                        var pwid = order[w].split(":", 2);
+                        var phraseid = pwid[0];
+                        var wordid = pwid[1];
+                        var entry = entries[version][passage.section + phraseid];
+
+                        // Add a space, if necessary.
+                        if (w > 0 && entry.parsing.charAt(0) != "S-") excerpt = excerpt + " ";
+
+                        var spanclass = word_css_class(entry.parsing);
+                        if (phraseid == passage.phraseid) {
+                            spanclass = spanclass + " selected_phrase";
+                        }
+
+                        var spanid = passage_id.work + "-" + passage_id.section +
+                            "|" + phraseid + "-" + wordid + "-" + version +
+                            // Add in the bucket and passage because the same
+                            // word may be present more than once on the same page.
+                            "|" + b + "|" + i;
+                        excerpt = excerpt +
+                                  "<span id='" + spanid + "' class='" + spanclass + "' " +
+                                  "onclick='select_word(this);' " +
+                                  "ondblclick='select_all_words(this);' " +
+                                  "onmousedown='word_mousedown(this);' " +
+                                  "onmouseup='word_mouseup(this);' " +
+                                  ">" + entry.text[parseInt(wordid)] + "</span>";
+                    }
+
+                    if (all_texts[version] === undefined) all_texts[version] = {};
+                    var ventry = entries[version][passage.section + passage.phraseid];
+                    all_texts[version][ventry.text.join(" ")] = null;
+
+                    if (vcount == 0) {
+                        var reference = "<td class='ref'>" +
+                                        "<a href='/{work}/{section}/" + window.location.search +
+                                        "#{p}-0-{version}'>{work}&nbsp;{section}:{v}</a></td>";
+                        reference = reference.replace(/[{]work[}]/g, passage_id.work)
+                                             .replace(/[{]section[}]/g, passage_id.section)
+                                             .replace(/[{]p[}]/g, passage.phraseid)
+                                             .replace("{v}", passage_id.verse)
+                                             .replace("{version}", base_version);
+                    } else {
+                        var reference = "<td></td>"
+                    }
+                    vcount += 1;
+
+                    var row = "<tr>" + reference + "<td class='excerpt'>" + excerpt + "</td></tr>\n";
+                    passage_rows.push(row);
+                }
+            }
+
+            // Add a row showing the parsing + texts
+            newHTML = newHTML + "<tr><td colspan='2' class='wordform'>" + form + "</td></tr>";
+            for (var version in all_texts) {
+                var vtexts = keys(all_texts[version]);
+                vtexts.sort();
+                newHTML = newHTML + "<tr><td></td><td class='glosses'>" + vtexts.join(", ") + "</td></tr>";
+            }
+
+            // Add all passage rows
+            newHTML = newHTML + passage_rows.join("");
+        }
+        newHTML = newHTML + "</table>\n";
+        $('workbench').innerHTML = newHTML;
+    }
+    h.send();
+
+    return false;
+}
+
+function word_css_class(parsing) {
+    // Return a string containing the class list for the given parsing.
+    var spanclass = 'word';
+    if (parsing != undefined && parsing != '') {
+        var casechar = parsing.charAt(5);
+        if (casechar == '-') {
+            if (parsing.charAt(0) == 'V' && parsing.charAt(4) != 'P') {
+                spanclass = spanclass + ' verb';
+            }
+        } else {
+            spanclass = spanclass + ' case_' + casechar;
+        }
+
+        var voicechar = parsing.charAt(3);
+        spanclass = spanclass + ' voice_' + voicechar;
+
+    }
+    return spanclass;
+}
+
+function open_entry(criteria) {
+    var url = "/versions/" + selected_excerpts[0].version + "/concordance/"
+            + encodeURIComponent(JSON.stringify(criteria))
+            + "/" + window.location.search;
+    window.open(url);
+}
+
+parsing_codes = {
+    "part": {
+       "A": "adjective",
+       "C": "conjunction",
+       "D": "adverb",
+       "I": "interjection",
+       "N": "noun",
+       "P": "preposition",
+       "T": "article",
+       "d": "demonstrative pronoun",
+       "Q": "interrogative/indefinite pronoun",
+       "p": "personal/possessive pronoun",
+       "r": "relative pronoun",
+       "V": "verb",
+       "X": "particle",
+       "S": "symbol",
+       "-": ""
+    },
+    "person": {
+        "-": "",
+        "1": "1st person",
+        "2": "2nd person",
+        "3": "3rd person"
+    },
+    "tense": {
+        "-": "",
+        "A": "aorist",
+        "F": "future",
+        "I": "imperfect",
+        "P": "present",
+        "X": "perfect",
+        "Y": "pluperfect"
+    },
+    "voice": {
+        "-": "",
+        "A": "active",
+        "M": "middle",
+        "P": "passive"
+    },
+    "mood": {
+        "-": "",
+        "D": "imperative",
+        "I": "indicative",
+        "N": "infinitive",
+        "O": "optative",
+        "P": "participle",
+        "S": "subjunctive"
+    },
+    "case": {
+        "-": "",
+        "A": "accusative",
+        "D": "dative",
+        "G": "genitive",
+        "N": "nominative",
+        "V": "vocative"
+    },
+    "number": {
+        "-": "",
+        "P": "plural",
+        "S": "singular"
+    },
+    "gender": {
+        "-": "",
+        "F": "feminine",
+        "M": "masculine",
+        "N": "neuter"
+    },
+    "degree": {
+        "-": "",
+        "C": "comparative",
+        "S": "superlative"
+    }
+}
+
+parsing_repr_order = [0, 4, 3, 5, 2, 7, 1, 6, 8];
+parsing_category_order = ["part", "person", "tense", "voice", "mood", "case", "number", "gender", "degree"];
+
+
+function parsing_repr(parsing_code) {
+    // Return a user-friendly string describing the given parsing code.
+    var r = [];
+    if (parsing_code != undefined && parsing_code != '') {
+        for (var i=0; i < parsing_repr_order.length; i++) {
+            var chindex = parsing_repr_order[i];
+            var ch = parsing_code.charAt(chindex);
+            var exp = parsing_codes[parsing_category_order[chindex]][ch];
+            if (exp !== undefined && exp.length != 0) { r.push(exp); }
+        }
+    }
+    return r.join(", ");
+}
+
+// An array of word_from_spanid objects.
+var selected_excerpts = [];
+
+function select_word(wordspan) {
+    if (cancel_select_word) {
+        cancel_select_word = false;
+        return false;
+    }
+
+    // Select a single phrase in a single version for editing.
+    var wordspans = document.getElementsByClassName("word");
+
+    // Unmark any previous matches.
+    for (var j=0; j < wordspans.length; j++) {
+        wordspans[j].classList.remove("selected_word");
+        wordspans[j].classList.remove("selected_phrase");
+    }
+
+    if (wordspan === null) {
+        selected_excerpts = [];
+        set_text($("word"), "");
+        set_text($("original"), "");
+        set_text($("parsing"), "");
+        set_text($("lemma"), "");
+        set_lexical_note("");
+        set_selected_version(null);
+        $("footer").style.visibility = 'hidden';
+    } else {
+        var excerpt = wordspan.parentNode;
+        var selection = word_from_spanid(wordspan.id);
+
+        // First, the selected word may actually be spread over mutliple spans.
+        // Mark them all.
+        var wordspans_in_this_excerpt = excerpt.getElementsByClassName("word");
+        for (var i=0; i < wordspans_in_this_excerpt.length; i++) {
+            var eachword = wordspans_in_this_excerpt[i];
+            var eachid = word_from_spanid(eachword.id);
+            if (eachid.phraseid == selection.phraseid) {
+                eachword.classList.add("selected_word");
+            }
+        }
+        selected_excerpts = [selection];
+
+        // Now, iterate over all words on the whole page and mark
+        // other versions of the same phrase as similar.
+        for (var i=0; i < wordspans.length; i++) {
+            var eachword = wordspans[i];
+            var eachid = word_from_spanid(eachword.id);
+
+            if (eachid.phraseid == selection.phraseid) {
+                eachword.classList.add("selected_phrase");
+            }
+        }
+
+        var entry = entries[selection.version][selection.entryid];
+
+        set_text($("word"), entry.text.join(" "));
+        set_text($("original"), entry.original);
+        set_text($("parsing"), parsing_repr(entry.parsing));
+        set_text($("lemma"), entry.lemma);
+
+        var lexnote = lexical_note_text(selection.version, entry.lemma);
+        set_lexical_note(lexnote);
+        set_selected_version(selection.version);
+        $("footer").style.visibility = 'visible';
+    }
+    if (document.activeElement == document.body) $("word").focus();
+
+    return false;
+}
+
+//                                   NOTES                                   //
+
+function toggle_notes() {
+    var d = $('lexnote_tab');
+    if (d.style.display == "block") {
+        fadeOut(d, 500);
+    } else {
+        fadeIn(d, 500);
+    }
+}
+
+function lexical_note_text(version, lemma) {
+    // Return the text of the identified lexical note, or the empty string if not found.
+    var lexnote = lexical_notes[version];
+    if (lexnote === undefined) return "";
+    lexnote = lexnote[lemma];
+    if (lexnote === undefined) return "";
+    return lexnote;
+}
+
+function set_lexical_note(lexnote) {
+    $("lexical_note").value = lexnote;
+    if (lexnote == "") {
+        $("lexical_note_toggle").classList.remove("has_notes");
+    } else {
+        $("lexical_note_toggle").classList.add("has_notes");
+    }
+}
+
+function lexnote_save() {
+    if (selected_excerpts.length == 0) return;
+    var version = selected_excerpts[0].version;
+    var lemma = get_text($("lemma"));
+    var note = $("lexical_note").value;
+    lexical_notes[version][lemma] = note;
+
+    var url = api_root + "versions/" + version + "/notes/lexical/" + encodeURIComponent(lemma) + "/";
+    var h = http("PUT", url, true, "Saving...");
+    h[204] = function(h) { toggle_notes(); set_lexical_note(); };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({"element": "shoji:entity", "body": {"note": note}}));
+}
+
+
+// We want to use double-clicking on a word to select all occurrences
+// (see select_all_words, below). Therefore, we never want double-clicking
+// to select that word as a selection range. We cannot actually prevent that,
+// but we can undo it via:
+document.ondblclick = function (e) {
+    if (window.getSelection) window.getSelection().removeAllRanges();
+    else if (document.selection) document.selection.empty();
+}
+
+function select_all_words(wordspan) {
+    // Select all occurrences of the given selection (within the same version).
+    // Selection will be by lemma and form.
+    var wordspans = document.getElementsByClassName("word");
+
+    // Remove any previous selection.
+    for (var j=0; j < wordspans.length; j++) {
+        wordspans[j].classList.remove("selected_word");
+        wordspans[j].classList.remove("selected_phrase");
+    }
+
+    if (wordspan === null) {
+        selected_excerpts = [];
+        set_text($("word"), "");
+        set_text($("original"), "");
+        set_text($("parsing"), "");
+        set_text($("lemma"), "");
+        set_lexical_note("");
+        $("footer").style.visibility = 'hidden';
+    } else {
+        var selection = word_from_spanid(wordspan.id);
+        var entry = entries[selection.version][selection.entryid];
+
+        // Iterate over all words on the whole page and mark
+        // any version of the same word.
+        selected_excerpts = [];
+        var excerpts = document.getElementsByClassName("excerpt");
+        for (var i=0; i < excerpts.length; i++) {
+            var wordspans_in_this_excerpt = excerpts[i].getElementsByClassName("word");
+            var matching_spans = [];
+            for (var j=0; j < wordspans_in_this_excerpt.length; j++) {
+                var eachword = wordspans_in_this_excerpt[j];
+                var eachselection = word_from_spanid(eachword.id);
+                var eachentry = entries[eachselection.version][eachselection.entryid];
+
+                if (eachentry.lemma == entry.lemma && eachentry.parsing == entry.parsing) {
+                    if (eachselection.version == selection.version) {
+                        matching_spans.push(eachword);
+                        eachword.classList.add("selected_word");
+                    } else {
+                        eachword.classList.add("selected_phrase");
+                    }
+                }
+            }
+
+            if (matching_spans.length > 0) {
+                selected_excerpts.push(word_from_spanid(matching_spans[0].id));
+            }
+        }
+
+        set_text($("word"), entry.text.join(" "));
+        set_text($("original"), entry.original);
+        set_text($("parsing"), parsing_repr(entry.parsing));
+        set_text($("lemma"), entry.lemma);
+        
+        var lexnote = lexical_note_text(selection.version, entry.lemma);
+        set_lexical_note(lexnote);
+        $("footer").style.visibility = 'visible';
+    }
+    return false;
+}
+
+function update_selected_words(newtext) {
+    // Alter all selected words (which MUST all be in the same version)
+    // to possess the new text.
+
+    if (selected_excerpts.length == 0) return;
+
+    // Split the given new text by spaces into individual atoms.
+    newtext = newtext.split(" ");
+    var posttext = newtext.length;
+
+    var index = {};
+    for (var i=0; i < selected_excerpts.length; i++) {
+        index[selected_excerpts[i].entryid] = {"text": newtext};
+    }
+
+    var selversion = selected_excerpts[0].version;
+    var url = api_root + "versions/" + selversion + "/text/";
+    var h = http("PATCH", url, true, "Saving...");
+    h[204] = function(h) {
+        for (var i=0; i < selected_excerpts.length; i++) {
+            var excerpt = selected_excerpts[i];
+            var entry = entries[selversion][excerpt.entryid];
+            var pretext = entry.text.length;
+
+            var lastspan = null;
+            for (var wordid=0; wordid < posttext; wordid++) {
+                // Span ids are of the form work-section|verseid.phraseid-wordid-version|bucket|passage
+                var spanid = [
+                    [excerpt.work, excerpt.section].join("-"),
+                    [excerpt.phraseid, wordid, excerpt.version].join("-"),
+                    excerpt.bucket,
+                    excerpt.passage
+                ].join("|");
+
+                var wordspan = $(spanid);
+                if (wordspan === null) {
+                    if (wordid >= pretext) {
+                        // Make a new wordspan...
+                        // ...after the last one
+                        if (lastspan !== null) {
+                            wordspan = document.createElement("span");
+                            wordspan.id = spanid;
+                            wordspan.className = word_css_class(entry.parsing);
+                            wordspan.classList.add("selected_word");
+                            wordspan.onclick = "select_word(this)";
+                            wordspan.ondblclick = "select_all_words(this)";
+                            wordspan.onmousedown = "word_mousedown(this)";
+                            wordspan.onmouseup = "word_mouseup(this)";
+                            set_text(wordspan, newtext[wordid]);
+
+                            var nextspan = lastspan.nextSibling;
+                            lastspan.parentNode.insertBefore(document.createTextNode(" "), nextspan);
+                            lastspan.parentNode.insertBefore(wordspan, nextspan);
+                            lastspan = wordspan;
+                        }
+                    }
+                } else {
+                    set_text(wordspan, newtext[wordid]);
+                    lastspan = wordspan;
+                }
+            }
+
+            // Remove any extraneous wordspans
+            for (var wordid=posttext; wordid < pretext; wordid++) {
+                var spanid = [
+                    [excerpt.work, excerpt.section].join("-"),
+                    [excerpt.phraseid, wordid, excerpt.version].join("-"),
+                    excerpt.bucket,
+                    excerpt.passage
+                ].join("|");
+                var wordspan = $(spanid);
+                if (wordspan !== null) wordspan.parentNode.removeChild(wordspan);
+            }
+
+            entry.text = newtext;
+        }
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({
+        "element": "shoji:catalog",
+        "index": index
+    }));
+}
+
+function word_keydown(e) {
+    e = e || window.event;
+    switch (e.keyCode) {
+        case 13: // enter
+            if (selected_excerpts.length == 0) return;
+            update_selected_words(get_text($("word")));
+            return false;
+    }
+}
+
+var pressTimer;
+var cancel_select_word = false;
+
+function word_mousedown(wordspan) {
+    cancel_select_word = false;
+    pressTimer = window.setTimeout(function() {
+        select_all_words(wordspan);
+        cancel_select_word = true;
+    }, 1000)
+    return false;
+}
+
+function word_mouseup(wordspan) {
+    clearTimeout(pressTimer);
+    return false;
+}
+
+
+//                                   LEMMAS                                   //
+
+function populate_lemmas(element) {
+    var url = api_root + "versions/" + base_version + "/lexicon/";
+    var h = http("GET", url, true);
+    h[200] = function(h) {
+        var j = JSON.parse(h.responseText);
+        var collation = Collation(j.collation);
+
+        var alphagroups = {};
+        for (var lemma_url in j.index) {
+            var lemma = decodeURIComponent(segment(lemma_url, -2));
+            var initial = collation.collatable(lemma.charAt(0));
+            if (alphagroups[initial] === undefined) alphagroups[initial] = [];
+            alphagroups[initial].push(lemma);
+        }
+        for (var initial in alphagroups) {
+            alphagroups[initial].sort(collation.collate);
+        }
+        var groupkeys = keys(alphagroups);
+        groupkeys.sort();
+
+        var options = "";
+        for (var itl=0; itl < groupkeys.length; itl++) {
+            var initial = groupkeys[itl];
+
+            var group = alphagroups[initial];
+            options += "<div class='lemma_group'>" + initial + "</div>";
+
+            for (var l=0; l < group.length; l++) {
+                var option = "<div class='existing_lemma' onclick='select_lemma(this)'>" + group[l] + "</div>";
+                options += option;
+            }
+        }
+        element.innerHTML = options;
+    }
+    h.send();
+}
+
+var select_lemma_target = null;
+
+function toggle_select_lemma(target) {
+    select_lemma_target = target;
+    var d = $('select_lemma_tab');
+    if (d.style.display == "block") {
+        fadeOut(d, 500);
+    } else {
+        if (target == "lemma" && selected_excerpts.length === 0) return;
+
+        var sel = $('select_lemma_options');
+        if (sel.childNodes.length == 0) populate_lemmas(sel);
+
+        fadeIn(d, 500);
+    }
+}
+
+function toggle_criteria_lemma() { return toggle_select_lemma("criteria_input_lemma"); }
+
+function select_lemma(element) {
+    fadeOut($('select_lemma_tab'), 100);
+    if (select_lemma_target == "lemma") {
+        set_text($(select_lemma_target), get_text(element));
+    } else {
+        $(select_lemma_target).value = get_text(element);
+        update_term();
+    }
+}
+
+function update_all_lemmas(newlemma) {
+    if (selected_excerpts.length === 0) return;
+
+    var index = {};
+    for (var se=0; se < selected_excerpts.length; se++) {
+        index[selected_excerpts[se].entryid] = {"lemma": newlemma};
+    }
+
+    var url = api_root + "versions/" + selected_excerpts[0].version + "/text/";
+    var h = http("PATCH", url, true, "Saving...");
+    h[204] = function(h) {
+        var ventries = entries[selected_excerpts[0].version];
+        for (var entryid in index) {
+            ventries[entryid]["lemma"] = newlemma;
+        }
+    };
+    h.setRequestHeader("Content-Type", "application/json");
+    h.send(JSON.stringify({
+        "element": "shoji:catalog",
+        "index": index
+    }));
+}
+
+function lemma_keydown(e) {
+    e = e || window.event;
+    switch (e.keyCode) {
+        case 13: // enter
+            update_all_lemmas(get_text($("lemma")));
+            return false;
+    }
+}
+
+//                                 CRITERIA                                 //
+
+function populate_criteria_bar(criteria) {
+    if (!Array.isArray(criteria)) {
+        criteria = [criteria];
+    }
+
+    var criteria_bar = $('criteria_bar');
+
+    // Add a span for each term
+    for (var i=0; i < criteria.length; i++) {
+        var term = criteria[i];
+        var term_span = make_term(term);
+        criteria_bar.appendChild(term_span);
+        if (i == 0) {
+            // For some reason, including a space between these causes
+            // the malayalam date mark to be rendered as a registered trademark.
+            // When the section name starts with a number, even no space
+            // is not enough; we must use \u180e (MONGOLIAN VOWEL SEPARATOR)
+            document.title = "\u0D79\u180e" + get_text(term_span);
+        }
+    }
+}
+
+function make_term(term) {
+    // Create and return a <span> for the given criteria term.
+    var span = document.createElement("span");
+    span.className = "term";
+    span.term = term;
+    span.onclick = select_term;
+
+    for (var key in term) {
+        var attr = document.createElement("span");
+        attr.className = "term_attribute";
+
+        if (key === "lemma" || key === "original") {
+            set_text(attr, key + ": " + term[key]);
+        } else if (key === "text") {
+            set_text(attr, '"' + term[key] + '"');
+        } else {
+            var exp = parsing_codes[key][term[key]];
+            if (exp === undefined || exp.length === 0) exp = key + ":" + term[key];
+            set_text(attr, exp);
+        }
+
+        span.appendChild(attr);
+    }
+    if (span.childNodes.length === 0) span.appendChild(document.createTextNode("-"));
+
+    return span;
+}
+
+var selected_term = null;
+
+function select_term() {
+    // Unmark any previous matches.
+    var termspans = document.getElementsByClassName("term");
+    for (var j=0; j < termspans.length; j++) {
+        termspans[j].classList.remove("selected_term");
+    }
+
+    var tab = $('alter_criteria_tab');
+    if (selected_term === this) {
+        selected_term = null;
+        fadeOut(tab, 500);
+    } else {
+        this.classList.add("selected_term");
+        selected_term = this;
+
+        var term = this.term;
+
+        $('criteria_input_text').value = term.text || '';
+        $('criteria_input_original').value = term.original || '';
+        $('criteria_input_lemma').value = term.lemma || '';
+        for (var i=0; i < parsing_category_order.length; i++) {
+            var key = parsing_category_order[i];
+            set_option($('criteria_select_' + key), term[key] || '-');
+        }
+
+        if (tab.style.display != "block") fadeIn(tab, 500);
+    }
+}
+
+function populate_criteria_selectors(element) {
+    var ps = "";
+
+    // Add a textbox for the current text
+    ps += "<div class='alter_criteria_category_div'>"
+        + "<h2 style='display: inline'>Text</h2>"
+        + "<input id='criteria_input_text' class='mph_select' type='text' onkeyup='update_term()' />"
+        + "</div>";
+
+    // Add a textbox for the original text
+    ps += "<div class='alter_criteria_category_div'>"
+        + "<h2 style='display: inline'>Original</h2>"
+        + "<input id='criteria_input_original' class='mph_select' type='text' onkeyup='update_term()' />"
+        + "</div>";
+
+    // Add a textbox for the lemma
+    ps += "<div class='alter_criteria_category_div'>"
+        + "<h2 style='display: inline'>Lemma</h2>"
+        + "<input id='criteria_input_lemma' class='mph_select' type='text' onkeyup='update_term()' />"
+        + "<span id='open_criteria_lemma_button' onclick='toggle_criteria_lemma();' title='Select an existing lemma'>&#8714;</span>"
+        + "</div>";
+
+    ps += "<div style='clear: both'>&nbsp;</div>";
+
+    // Add a select dropdown for each parsing category
+    for (var category in parsing_codes) {
+        var codes = parsing_codes[category];
+        var code_keys = keys(codes);
+        code_keys.sort();
+        ps += "<div class='alter_criteria_category_div'>"
+            + "<h2>" + category + "</h2>"
+            + "<select id='criteria_select_" + category + "' class='mph_select' size=" + code_keys.length + " onchange='update_term()'>";
+        for (var i=0; i < code_keys.length; i++) {
+            ps += "<option value='" + code_keys[i] + "'>" + codes[code_keys[i]] + "</option>";
+        }
+        ps += "</select></div>";
+    }
+
+    ps += "<div style='clear: both'>&nbsp;</div>";
+    element.innerHTML = ps;
+}
+
+function term_from_criteria_selectors() {
+    // Return a criteria term from the criteria builder selectors
+    var term = {};
+
+    var ctext = $('criteria_input_text').value;
+    if (ctext != '') term.text = ctext;
+
+    var otext = $('criteria_input_original').value;
+    if (otext != '') term.original = otext;
+
+    var ltext = $('criteria_input_lemma').value;
+    if (ltext != '') term.lemma = ltext;
+
+    for (var category in parsing_codes) {
+        var sel = $('criteria_select_' + category);
+        if (sel.selectedIndex > -1) {
+            var selvalue = selopt(sel).value;
+            if (selvalue != "-") term[category] = selvalue;
+        }
+    }
+
+    return term;
+}
+
+function update_term() {
+    if (selected_term === null) return;
+
+    var term = term_from_criteria_selectors();
+    var newterm = make_term(term);
+    newterm.classList.add("selected_term");
+    selected_term.parentNode.replaceChild(newterm, selected_term);
+    selected_term = newterm;
+
+    criteria_apply_button_update_href();
+}
+
+function criteria_apply_button_update_href() {
+    var terms = [];
+    var termspans = document.getElementsByClassName("term");
+    for (var i=0; i < termspans.length; i++) terms.push(termspans[i].term);
+    if (terms.length == 1) terms = terms[0];
+
+    var url = "../"
+            + encodeURIComponent(JSON.stringify(terms))
+            + "/" + window.location.search;
+    criteria_apply_button.href = url;
+}
+
+function criteria_add_before() {
+    if (selected_term === null) return;
+
+    var newterm = make_term({});
+    selected_term.parentNode.insertBefore(newterm, selected_term);
+    newterm.click();
+
+    criteria_apply_button_update_href();
+}
+
+function criteria_add_after() {
+    if (selected_term === null) return;
+
+    var newterm = make_term({});
+    selected_term.parentNode.insertBefore(newterm, selected_term.nextSibling);
+    newterm.click();
+
+    criteria_apply_button_update_href();
+}
+
+function criteria_remove() {
+    if (selected_term === null) return;
+
+    var toselect = selected_term.nextSibling;
+    if (toselect === null) toselect = selected_term.previousSibling;
+
+    var parent = selected_term.parentNode
+    parent.removeChild(selected_term);
+
+    // If no terms are left, make a dummy
+    if (toselect === null) {
+        toselect = make_term({});
+        parent.appendChild(toselect);
+    }
+
+    toselect.click();
+
+    criteria_apply_button_update_href();
+}
+
+//                                   OTHER                                   //
+
+function init() {
+    populate_criteria_bar(JSON.parse(json_criteria));
+    fill_version_header();
+    load_concordance_entry();
+
+    populate_criteria_selectors($('alter_criteria_options'));
+
+    $("workbench").focus();
+}
+
+</script>
+<script type="text/javascript" src="/ui/versions.js"></script>
+</head>
+
+<body onLoad="init()">
+
+<div id='header'>
+    <div id="status"></div>
+    <div id='page_title'>
+        <span id='criteria_bar'></span>
+    </div>
+    <div>
+        <span id='versions_header' onclick="toggle_select_versions()" title="Click to select versions"></span>
+    </div>
+</div>
+
+<div id="workbench"></div>
+
+<div id='fatal_error'>
+    <h2 id='fatal_error_title'></h2>
+    <p style='float: right'><input type="button" value="Close" onClick="remove_fatal()" /></p>
+    <p id='fatal_error_msg'></p>
+</div>
+
+<div id='lexnote_tab' class='tooltab'>
+    <div id='lexnote_save_button' style='float: left' onclick='lexnote_save()'>Save</div>
+    <div id='lexnote_cancel_button' style='float: right' onclick='toggle_notes()'>X</div>
+    <h2 class='tabtitle'>Lexical Notes</h2>
+    <div id='lexical_notes_wrapper'><textarea id="lexical_note"></textarea></div>
+</div>
+
+<div id='alter_criteria_tab' class='tooltab'>
+    <div>
+        <div style='float: right'><a href='' id='criteria_apply_button'>apply</a></div>
+        <span id='criteria_add_before_button' onclick='criteria_add_before()' title='Add a new term before this one'>+</span>
+        <span id='criteria_remove_button' onclick='criteria_remove()' title='Remove this term'>x</span>
+        <span id='criteria_add_after_button' onclick='criteria_add_after()' title='Add a new term after this one'>+</span>
+    </div>
+    <div id='alter_criteria_options'></div>
+</div>
+
+<div id='select_lemma_tab' class='tooltab'>
+    <div id='select_lemma_cancel_button' style='float: right' onclick='toggle_select_lemma(null)'>X</div>
+    <p class='tabtitle'>Select an existing lemma.</p>
+    <div id='select_lemma_options'></div>
+</div>
+
+<div id='version_tab' class='tooltab'>
+    <div class="centerer">
+        <div id="loginform">
+            Email:&nbsp;<input type="text" id="email" /><br />
+            Password:&nbsp;<input type="password" id="password" /><br />
+            <span class='login_button' onclick='login_pass()'>Log in</span>
+        </div>
+        <div id='version_selector'>
+            <p id='reload_versions_button' onclick='reload_with_new_versions()'>Reload with new version selections</p>
+            <div id='versions'></div>
+            <div id='lexicons'></div>
+        </div>
+    </div>
+</div>
+
+<div id="footer">
+    <div id="text_tools">
+        <span id="lexical_note_toggle" onclick="toggle_notes()">&#8224;</span>
+    </div>
+    <div id="text_editing">
+        <span id="word" contenteditable="true" onkeydown="return word_keydown(event)" title="this version"></span>
+        <span class="open_entry_button" onclick='open_entry({"text": get_text($("word"))});'
+            title="Concordance for this word form">*</span>
+        <span>&nbsp;&middot;&nbsp;</span>
+
+        <span id="original" title="original"></span>
+        <span class="open_entry_button" onclick='open_entry({"original": get_text($("original"))});'
+            title="Concordance for this word form">*</span><span class="perseus_link"
+            onclick='window.open("http://www.perseus.tufts.edu/hopper/morph?l=" + encodeURIComponent(get_text($("original"))));'
+            title="Perseus lookup">P</span><span class="logeion_link"
+            onclick='window.open("http://logeion.uchicago.edu/index.html#" + encodeURIComponent(get_text($("original"))));'
+            title="Logeion lookup">L</span>
+        <span>&nbsp;<span id="open_lemma_button" onclick="toggle_select_lemma('lemma');"
+                     title="Select an existing lemma">&#8714;</span>&nbsp;</span>
+
+        <span id="lemma" contenteditable="true" onkeydown="return lemma_keydown(event)" title="lemma"></span>
+        <span class="open_entry_button" onclick='open_entry({"lemma": get_text($("lemma"))});'
+            title="Concordance for this lemma">*</span><span class="perseus_link"
+            onclick='window.open("http://www.perseus.tufts.edu/hopper/morph?l=" + encodeURIComponent(get_text($("lemma"))));'
+            title="Perseus lookup">P</span><span class="logeion_link"
+            onclick='window.open("http://logeion.uchicago.edu/index.html#" + encodeURIComponent(get_text($("lemma"))));'
+            title="Logeion lookup">L</span>
+    </div>
+    <div id="text_parsing">
+        <span id="parsing"></span>
+    </div>
+</div>
+
+</body>
+</html>
