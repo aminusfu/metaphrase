@@ -1,12 +1,11 @@
 from collections import defaultdict
 import fcntl
+import json
 import os
 import re
 import shutil
 import threading
 import unicodedata
-
-import simplejson
 
 from metaphrase import abspath, local_path, FileNotFound
 
@@ -20,10 +19,10 @@ parsing_category_order = ["part", "person", "tense", "voice",
 def normalize(obj):
     t = type(obj)
     if t is dict:
-        return dict((normalize(k), normalize(v)) for k, v in obj.iteritems())
+        return dict((normalize(k), normalize(v)) for k, v in obj.items())
     elif t is list:
         return [normalize(item) for item in obj]
-    elif t is unicode:
+    elif t is str:
         return unicodedata.normalize('NFC', obj)
     else:
         return obj
@@ -46,19 +45,19 @@ def read_json(path):
     if not os.path.exists(path):
         raise FileNotFound(path)
 
-    with open(path, "rb") as f:
+    with open(path, "r") as f:
         try:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
             data = f.read()
         finally:
             fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-    return simplejson.loads(data)
+    return json.loads(data)
 
 
 def write_json(path, data):
     """Write serialized JSON to the given path."""
-    data = simplejson.dumps(data, indent='  ')
-    with open(path, "wb") as f:
+    data = json.dumps(data, indent='  ')
+    with open(path, "w") as f:
         try:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
             f.write(data)
@@ -158,7 +157,7 @@ class Section:
                 )
 
             term = {}
-            for k, v in template.iteritems():
+            for k, v in template.items():
                 inverse = isinstance(v, dict)
                 if inverse:
                     v = v["not"]
@@ -197,7 +196,7 @@ class Section:
         Values MUST be of the form: (inverse, [terms])
         """
         parsing = entry.get('parsing', '')
-        for k, v in template.iteritems():
+        for k, v in template.items():
             inverse, terms = v
 
             match = False
@@ -225,7 +224,7 @@ class Section:
     def update(self, entries):
         """Overwrite self.entries with the given entries."""
         with self.lock:
-            for phraseid, tup in entries.iteritems():
+            for phraseid, tup in entries.items():
                 e = self.entries[phraseid]
                 pretext = len(e["text"])
                 e.update(tup)
@@ -260,7 +259,7 @@ class Section:
         indices = {}
         for k in keys:
             idx = {}
-            for id, e in self.entries.iteritems():
+            for id, e in self.entries.items():
                 idx.setdefault(e[k], []).append(id)
             indices[k] = idx
         return indices
@@ -381,7 +380,7 @@ class Version:
 
                 oldentries = read_json(local_path(self.works_path, workid, sectionid + ".lex"))["entries"]
                 entries = {}
-                for id, entry in oldentries.iteritems():
+                for id, entry in oldentries.items():
                     entry.pop("id")
                     newid = ".".join(id.split(".")[-2:])
                     entries[newid] = entry
@@ -395,7 +394,7 @@ class Version:
                                  for phraseid, wordid in data["order"]]
                 needs_save = True
 
-            if data["entries"] and "part" in data["entries"].itervalues().next():
+            if data["entries"] and "part" in next(iter(data["entries"].values())):
                 partmap = {
                     "A-": "A",
                     "C-": "C",
@@ -413,7 +412,7 @@ class Version:
                     "S-": "S",
                     "--": "-"
                 }
-                for e in data["entries"].itervalues():
+                for e in data["entries"].values():
                     part = e.pop("part", "--")
                     e["parsing"] = partmap[part] + e["parsing"]
                 needs_save = True
@@ -457,10 +456,10 @@ class Version:
     def word_counts(self):
         """Return a dict of all {word: count} pairs from the version."""
         words = {}
-        for workid, work in self.works.iteritems():
+        for workid, work in self.works.items():
             for sectionid in work["sections"]:
                 section = self.load_section(workid, sectionid)
-                for e in section.entries.itervalues():
+                for e in section.entries.values():
                     for text in e["text"]:
                         if text in words:
                             words[text] += 1
@@ -481,10 +480,10 @@ class Version:
     def lemma_counts(self):
         """Return a dict of all {lemma: count} pairs from the lexicons."""
         lemmas = {}
-        for workid, work in self.works.iteritems():
+        for workid, work in self.works.items():
             for sectionid in work["sections"]:
                 lex = self.load_section(workid, sectionid)
-                for lemma, ids in lex.indices.get("lemma", {}).iteritems():
+                for lemma, ids in lex.indices.get("lemma", {}).items():
                     if lemma in lemmas:
                         lemmas[lemma] += len(ids)
                     else:
@@ -494,14 +493,14 @@ class Version:
     def morphology_map(self):
         """Return the most-common {original: entry} pairs from this version."""
         m = {}
-        for workid, work in self.works.iteritems():
+        for workid, work in self.works.items():
             for sectionid in work["sections"]:
                 try:
                     section = self.load_section(workid, sectionid)
                 except FileNotFound:
                     continue
 
-                for entry in section.entries.itervalues():
+                for entry in section.entries.values():
                     orig = entry["original"]
                     if orig not in m:
                         m[orig] = {}
@@ -514,19 +513,19 @@ class Version:
 
         # Grab the most popular
         sorted_m = dict(
-            (orig, sorted([(c, k) for k, c in keycounts.iteritems()])[-1][1])
-            for orig, keycounts in m.iteritems()
+            (orig, sorted([(c, k) for k, c in keycounts.items()])[-1][1])
+            for orig, keycounts in m.items()
         )
 
         return dict(
             (orig, {"lemma": e[0], "parsing": e[1], "original": orig})
-            for orig, e in sorted_m.iteritems()
+            for orig, e in sorted_m.items()
         )
 
     def translate(self, entry):
         """Return the most-common text from this version for the given entry."""
         match_counts = defaultdict(int)
-        for workid, work in self.works.iteritems():
+        for workid, work in self.works.items():
             for sid in work["sections"]:
                 try:
                     vsect = self.load_section(workid, sid)
@@ -538,7 +537,7 @@ class Version:
                     match_counts[t] += 1
 
         if match_counts:
-            match_counts = [(c, k) for k, c in match_counts.iteritems()]
+            match_counts = [(c, k) for k, c in match_counts.items()]
             return sorted(match_counts)[-1][1]
 
         return None
@@ -617,7 +616,7 @@ class Versions:
         self.auth.pop(version.name, None)
         shutil.rmtree(version.path, ignore_errors=True)
 
-    def iteritems(self):
+    def items(self):
         for k in self.version_names:
             yield k, self[k]
 
@@ -645,7 +644,7 @@ class Library:
         # TODO: move into each version (as part of the lexicon, probably)
         self.refs = normalize(self.load_refs())
         self.inverse_refs = {}
-        for child, parents in self.refs.iteritems():
+        for child, parents in self.refs.items():
             for p in parents:
                 children = self.inverse_refs.setdefault(p, [])
                 children.append(child)
@@ -764,7 +763,7 @@ class Library:
                 if matching_ids:
                     new_entries, new_passages = self._add_passages(
                         workid, sectionid, versions, matching_ids, context)
-                    for version, e in new_entries.iteritems():
+                    for version, e in new_entries.items():
                         entries[version].update(e)
                     passages.extend(new_passages)
                     approx_words += len(new_passages) * mult
@@ -774,7 +773,7 @@ class Library:
         return entries, passages, True
 
     def family(self, lemma):
-        """Return a tree of ancestors and descendants for the given lemma.
+        r"""Return a tree of ancestors and descendants for the given lemma.
 
         Each node in the tree is a dict with a lemma member, plus an
         optional parents and/or children members.

@@ -9,6 +9,7 @@ A token is created (or recreated) for a particular email address by POST'ing it
 to login/ with the correct password.
 """
 
+from base64 import b64decode, b64encode
 from binascii import hexlify
 from os import urandom
 
@@ -44,7 +45,7 @@ def token_auth(secure=True, debug=False):
         cherrypy.log("Cookie: %s" % cherrypy.request.cookie)
 
     try:
-        email = cherrypy.request.cookie['login'].value.decode('base64')
+        email = b64decode(cherrypy.request.cookie['login'].value).decode("latin1")
         token = cherrypy.request.cookie['token'].value
         if tokens[email] == token:
             cherrypy.request.login = email
@@ -83,16 +84,14 @@ class Login(object):
 
         secure = req.config['tools.token_auth.secure']
 
-        # For some reason, encode('base64') adds a spurious trailing newline,
-        # which chokes javascript's atob() and is ignored by decode('base64').
-        set_cookie('login', email.encode('base64')[:-1], secure=secure)
+        set_cookie('login', b64encode(email.encode("latin1")).decode("latin1"), secure=secure)
 
         if email in salted_passwords:
-            if bcrypt.checkpw(password, salted_passwords[email]):
+            if bcrypt.checkpw(password.encode("utf8"), salted_passwords[email]):
                 # Reuse any existing token. This allows one to log in
                 # with the same account on multiple devices.
                 if email not in tokens:
-                    tokens[email] = hexlify(urandom(64))
+                    tokens[email] = hexlify(urandom(64)).decode("latin1")
 
                 set_cookie('token', tokens[email], secure=secure)
                 cherrypy.response.status = 204
@@ -102,7 +101,7 @@ class Login(object):
 
 
 salted_passwords = {
-    "fumanchu@aminus.org": "$2a$15$Ntwbp0H/HJXBuIJ2z7lhqe6xnz9rLTVvLNvSxbzURzl5va4AHQF3K"
+    "fumanchu@aminus.org": b"$2a$15$Ntwbp0H/HJXBuIJ2z7lhqe6xnz9rLTVvLNvSxbzURzl5va4AHQF3K"
 }
 
 

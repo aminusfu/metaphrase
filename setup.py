@@ -9,9 +9,8 @@ setup(
     packages=find_packages('.'),
     package_dir={'metaphrase': 'metaphrase'},
     install_requires=[
-        'simplejson>=2.6.2',
-        'CherryPy==3.2.4',
-        'py-bcrypt>=0.4.0',
+        'CherryPy>=4.2.4',
+        'bcrypt>=5.0.0',
     ],
     entry_points={
         #'console_scripts': ['metaphrase = metaphrase.run:main']

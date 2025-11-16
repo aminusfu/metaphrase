@@ -1,12 +1,11 @@
 # coding: utf-8
 import argparse
-
+import json
 import os
 thisdir = os.path.abspath(os.path.dirname(__file__))
 import re
 import string
 import urllib
-import urlparse
 
 
 import cherrypy
@@ -23,9 +22,9 @@ days1 = 86400
 
 def url(*args, **kwargs):
     """Call url with the given args, kwargs. Quote as needed."""
-    s, l, path, q, f = urlparse.urlsplit(cherrypy.url(*args, **kwargs))
-    path = "/".join([urllib.quote(p) for p in path.split("/")])
-    return urlparse.urlunsplit((s, l, path, q, f))
+    s, l, path, q, f = urllib.parse.urlsplit(cherrypy.url(*args, **kwargs))
+    path = "/".join([urllib.parse.quote(p) for p in path.split("/")])
+    return urllib.parse.urlunsplit((s, l, path, q, f))
 
 
 def auth_version(role='reader', versions=None, version=None):
@@ -113,12 +112,12 @@ class LexicalNotes:
                 "or DELETE."),
             "index": dict(
                 (url(k + "/"), {})
-                for k, v in sorted(version.lexical_notes.iteritems())
+                for k, v in sorted(version.lexical_notes.items())
             )
         }
 
     def _cp_dispatch(self, vpath):
-        cherrypy.request.lemma = vpath.pop(0).decode("utf-8")
+        cherrypy.request.lemma = vpath.pop(0)
         return LexicalNote()
 
 
@@ -154,8 +153,8 @@ class ConcordanceEntry:
             context = 6
 
         try:
-            criteria = libraries.normalize(libraries.simplejson.loads(req.criteria))
-        except libraries.simplejson.JSONDecodeError:
+            criteria = libraries.normalize(json.loads(req.criteria))
+        except json.JSONDecodeError:
             raise cherrypy.HTTPError(404, "Concordance criteria MUST be valid JSON")
 
         entries, passages, complete = library.concordance(
@@ -164,7 +163,7 @@ class ConcordanceEntry:
         lexical_notes = {}
         for v in versions:
             version = auth_version(version=v)
-            lemmas = set(entry['lemma'] for entry in entries[v].itervalues())
+            lemmas = set(entry['lemma'] for entry in entries[v].values())
             lexical_notes[v] = dict(
                 (lemma, version.lexical_notes[lemma])
                 for lemma in lemmas.intersection(version.lexical_notes)
@@ -193,7 +192,7 @@ class ConcordanceEntry:
 
         lemmas = set([wf["lemma"] for wf in criteria
                       if isinstance(wf, dict) and "lemma" in wf
-                      and isinstance(wf["lemma"], basestring)])
+                      and isinstance(wf["lemma"], str)])
         if len(lemmas) == 1:
             response["body"]["family"] = library.family(lemmas.pop())
 
@@ -212,13 +211,13 @@ class ConcordanceIndex:
             "self": url(qs=cherrypy.request.query_string),
             "element": "shoji:catalog",
             "index": dict(
-                (url(k.encode('utf-8') + "/"), {"count": v})
-                for k, v in version.word_counts().iteritems()
+                (url(k + "/"), {"count": v})
+                for k, v in version.word_counts().items()
             )
         }
 
     def _cp_dispatch(self, vpath):
-        cherrypy.request.criteria = vpath.pop(0).decode("utf-8")
+        cherrypy.request.criteria = vpath.pop(0)
         return ConcordanceEntry()
 
 
@@ -258,7 +257,7 @@ class WordOrder:
             section = version.load_section(req.workid, req.sectionid)
             section.move_before(id, movebefore)
             version.save_section(section)
-        except ValueError, exc:
+        except ValueError as exc:
             raise cherrypy.HTTPError(400, exc.args[0])
 
         cherrypy.response.status = 204
@@ -426,11 +425,11 @@ class Text:
         index = libraries.normalize(req.json['index'])
 
         by_section = {}
-        for id, entry in index.iteritems():
+        for id, entry in index.items():
             workid, sectionid, phraseid = id.split("/", 3)
             by_section.setdefault((workid, sectionid), {})[phraseid] = entry
 
-        for (workid, sectionid), patches in by_section.iteritems():
+        for (workid, sectionid), patches in by_section.items():
             section = version.load_section(workid, sectionid)
             section.update(patches)
             version.save_section(section)
@@ -439,8 +438,8 @@ class Text:
 
     def _cp_dispatch(self, vpath):
         req = cherrypy.serving.request
-        req.workid = vpath.pop(0).decode("utf-8")
-        req.sectionid = vpath.pop(0).decode("utf-8")
+        req.workid = vpath.pop(0)
+        req.sectionid = vpath.pop(0)
 
         if vpath or (req.method != "POST"):
             version = library.versions[req.version]
@@ -465,8 +464,8 @@ class LexiconEntries:
             # TODO: make this configurable
             "collation": greek_collation,
             "index": dict(
-                (urllib.quote(k.encode('utf-8')) + "/", {"count": v})
-                for k, v in version.lemma_counts().iteritems()
+                (urllib.parse.quote(k) + "/", {"count": v})
+                for k, v in version.lemma_counts().items()
             )
         }
 
@@ -514,7 +513,7 @@ class Version:
                 "notes": url("notes/"),
             },
             "order": [workid + "/" for workid in version.worksorder],
-            "index": dict((workid + "/", work) for workid, work in version.works.iteritems())
+            "index": dict((workid + "/", work) for workid, work in version.works.items())
         }
 
     @cherrypy.tools.json_in()
@@ -524,7 +523,7 @@ class Version:
 
         new_works = libraries.normalize(req.json["index"])
         # TODO: validation
-        for workurl, work in new_works.iteritems():
+        for workurl, work in new_works.items():
             workid = workurl.split("/")[-2]
             if work is None:
                 version.destroy_work(workid)
@@ -563,7 +562,7 @@ class Version:
 
         works = body.get("works", None)
         if works is not None:
-            works = dict((k.split("/")[-2], v) for k, v in works.iteritems())
+            works = dict((k.split("/")[-2], v) for k, v in works.items())
         versions.copy_sections(versions[parent], version, works,
                                body.get("translate", False))
 
@@ -592,7 +591,7 @@ class Versions:
         for name in versions.version_names:
             vauth = versions.auth[name]
             if versions.permit(name, req.login, 'reader'):
-                k = url(name.encode("utf-8") + "/")
+                k = url(name + "/")
 
                 # Allow admins to see (and change) permissions.
                 if versions.permit(name, req.login, 'admin'):
@@ -628,7 +627,7 @@ class Versions:
         req = cherrypy.request
         versions = library.versions
 
-        for url, attrs in libraries.normalize(req.json["index"]).iteritems():
+        for url, attrs in libraries.normalize(req.json["index"]).items():
             name = url.split("/")[-2]
 
             if (
@@ -659,7 +658,7 @@ class Versions:
         cherrypy.response.status = 204
 
     def _cp_dispatch(self, vpath):
-        cherrypy.request.version = v = vpath.pop(0).decode("utf-8")
+        cherrypy.request.version = v = vpath.pop(0)
         if v not in library.versions.version_names:
             raise cherrypy.NotFound()
         return Version()
@@ -709,7 +708,7 @@ class ConcordanceIndexUI:
     index.exposed = True
 
     def _cp_dispatch(self, vpath):
-        criteria = vpath.pop(0).decode("utf-8")
+        criteria = vpath.pop(0)
         return ConcordanceEntryUI()
 
 
@@ -731,7 +730,7 @@ class VersionsUI:
     index.exposed = True
 
     def _cp_dispatch(self, vpath):
-        version = vpath.pop(0).decode("utf-8")
+        version = vpath.pop(0)
         return VersionUI()
 
 
@@ -752,7 +751,7 @@ class WorkUI:
 
     def _cp_dispatch(self, vpath):
         req = cherrypy.serving.request
-        req.sectionid = vpath.pop(0).decode("utf-8")
+        req.sectionid = vpath.pop(0)
         return SectionUI()
 
 
@@ -782,7 +781,7 @@ class Root:
     healthy._cp_config = {"tools.auth_basic.on": False}
 
     def _cp_dispatch(self, vpath):
-        cherrypy.request.work = vpath.pop(0).decode("utf-8")
+        cherrypy.request.work = vpath.pop(0)
         return WorkUI()
 
 
