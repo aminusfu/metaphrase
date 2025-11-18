@@ -244,7 +244,6 @@ var json_criteria = decodeURIComponent(segment(window.location.href, -2));
 var base_version = decodeURIComponent(segment(window.location.href, -4));
 
 var entries = {};
-var lexical_notes = {};
 
 function parents(node) {
     if (node.parents === null) return [];
@@ -274,7 +273,7 @@ function children(node) {
 
 function load_concordance_entry() {
     // Fetch the primary content for the page: a Shoji Entity
-    // with {passages, entries, lexical_notes} attributes.
+    // with {passages, entries} attributes.
     // Passages: an array of match objects, each of the form: {
     //     section: workid + "/" + sectionid + "/",
     //     phraseid: "verse.phrase",
@@ -291,7 +290,6 @@ function load_concordance_entry() {
         var j = JSON.parse(h.responseText)["body"];
         var passages = j.passages;
         entries = j.entries;
-        lexical_notes = j.lexical_notes;
 
         var newHTML = "";
 
@@ -610,8 +608,8 @@ function select_word(wordspan) {
         set_text($("parsing"), parsing_repr(entry.parsing));
         set_text($("lemma"), entry.lemma);
 
-        var lexnote = lexical_note_text(selection.version, entry.lemma);
-        set_lexical_note(lexnote);
+        set_lexical_note("");
+        fetch_lexical_note(selection.version, entry.lemma);
         set_selected_version(selection.version);
         $("footer").style.visibility = 'visible';
     }
@@ -631,13 +629,15 @@ function toggle_notes() {
     }
 }
 
-function lexical_note_text(version, lemma) {
-    // Return the text of the identified lexical note, or the empty string if not found.
-    var lexnote = lexical_notes[version];
-    if (lexnote === undefined) return "";
-    lexnote = lexnote[lemma];
-    if (lexnote === undefined) return "";
-    return lexnote;
+function fetch_lexical_note(version, lemma) {
+    var url = api_root + "versions/" + version + "/notes/lexical/" + encodeURIComponent(lemma) + "/";
+    var h = http("GET", url, true);
+    h[200] = function(h) {
+        var j = JSON.parse(h.responseText);
+        set_lexical_note(j["body"]["note"]);
+    };
+    h[404] = function(h) {};
+    h.send();
 }
 
 function set_lexical_note(lexnote) {
@@ -654,7 +654,6 @@ function lexnote_save() {
     var version = selected_excerpts[0].version;
     var lemma = get_text($("lemma"));
     var note = $("lexical_note").value;
-    lexical_notes[version][lemma] = note;
 
     var url = api_root + "versions/" + version + "/notes/lexical/" + encodeURIComponent(lemma) + "/";
     var h = http("PUT", url, true, "Saving...");
@@ -728,8 +727,8 @@ function select_all_words(wordspan) {
         set_text($("parsing"), parsing_repr(entry.parsing));
         set_text($("lemma"), entry.lemma);
         
-        var lexnote = lexical_note_text(selection.version, entry.lemma);
         set_lexical_note(lexnote);
+        fetch_lexical_note(selection.version, entry.lemma);
         $("footer").style.visibility = 'visible';
     }
     return false;

@@ -160,23 +160,13 @@ class ConcordanceEntry:
         entries, passages, complete = library.concordance(
             versions, criteria, req.version, bool(strict), context)
 
-        lexical_notes = {}
-        for v in versions:
-            version = auth_version(version=v)
-            lemmas = set(entry['lemma'] for entry in entries[v].values())
-            lexical_notes[v] = dict(
-                (lemma, version.lexical_notes[lemma])
-                for lemma in lemmas.intersection(version.lexical_notes)
-            )
-
         response = {
             "self": url(qs=cherrypy.request.query_string),
             "element": "shoji:entity",
             "body": {
                 "passages": passages,
-                # These are both {version: {lemma: ...}} trees.
+                # This is a {version: {lemma: ...}} tree.
                 "entries": entries,
-                "lexical_notes": lexical_notes,
                 "complete": complete
             }
         }
@@ -305,18 +295,11 @@ class TextSection:
                     "name": " ".join(names[i + 1])
                 }
 
-        lemmas = set(section.indices["lemma"])
-        lexical_notes = dict(
-            (lemma, version.lexical_notes[lemma])
-            for lemma in lemmas.intersection(version.lexical_notes)
-        )
-
         workname = version.works[req.workid].get("name", req.workid)
         return {
             "self": url(),
             "element": "shoji:catalog",
             "version": req.version,
-            "lexical_notes": lexical_notes,
             "name": " ".join((workname, req.sectionid)),  # TODO: allow names per version
             "previous": prev_section,
             "next": next_section,
@@ -790,7 +773,7 @@ library = None
 
 def configure(libpath, domain, port, proxied):
     global library
-    library = libraries.Library(os.path.abspath(libpath))
+    library = libraries.Library(os.path.abspath(os.path.expanduser(libpath)))
     auth.cookie_domain = domain
 
     return {
@@ -798,7 +781,7 @@ def configure(libpath, domain, port, proxied):
             "server.socket_host": "0.0.0.0",
             "server.socket_port": port,
             "checker.on": False,
-            "log.error_file": "/home/fumanchu/logs/user/metaphrase/error.log"
+            "log.error_file": "metaphrase-error.log"
         },
         '/': {
             'tools.token_auth.on': True,

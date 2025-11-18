@@ -677,7 +677,7 @@ class TestConcordance(MetaphraseTestCase):
 
     def test_strict(self):
         url = ('/api/versions/translated/concordance/' +
-               urllib.quote('{"text": "God"}') +
+               urllib.parse.quote('{"text": "God"}') +
                '/?versions=translated&strict=true')
         self.getPage(url)
         self.assertStatus(200)
@@ -689,7 +689,7 @@ class TestConcordance(MetaphraseTestCase):
     def test_multiple_wordforms(self):
         # Note that each wordform MUST be utf-8
         self.getPage('/api/versions/translated/concordance/' +
-                     urllib.quote('[{"text": ".*God"}, {"text": ","}]') +
+                     urllib.parse.quote('[{"text": ".*God"}, {"text": ","}]') +
                      '/?versions=translated')
         self.assertStatus(200)
         passages = self.json["body"]["passages"]
@@ -710,7 +710,7 @@ class TestConcordance(MetaphraseTestCase):
 
     def test_skipping(self):
         self.getPage('/api/versions/translated/concordance/' +
-                     urllib.quote('[{"text": "God"}, {}, {"text": "in"}]') +
+                     urllib.parse.quote('[{"text": "God"}, {}, {"text": "in"}]') +
                      '/?versions=translated')
         self.assertStatus(200)
         passages = self.json["body"]["passages"]
@@ -732,7 +732,7 @@ class TestConcordance(MetaphraseTestCase):
 
     def test_parsing_terms(self):
         self.getPage('/api/versions/translated/concordance/' +
-                     urllib.quote('[{"text": "in"}, {"case": "D"}]') +
+                     urllib.parse.quote('[{"text": "in"}, {"case": "D"}]') +
                      '/?versions=translated')
         self.assertStatus(200)
         passages = self.json["body"]["passages"]
@@ -754,7 +754,7 @@ class TestConcordance(MetaphraseTestCase):
     def test_lemma_terms(self):
         self.getPage(
             '/api/versions/translated/concordance/' +
-            urllib.quote('[{"lemma": "\u1f10\u03bd"}, {}, '
+            urllib.parse.quote('[{"lemma": "\u1f10\u03bd"}, {}, '
                          '{"lemma": "\u1f38\u03b7\u03c3\u03bf\u1fe6\u03c2"}]') +
             '/?versions=translated')
         self.assertStatus(200)

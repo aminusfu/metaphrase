@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from base64 import b64encode
 import json
 import os
 
@@ -42,10 +43,8 @@ class MetaphraseTestCase(webtest.WebCase):
             login = self.login
         if login is not None:
             token = auth.tokens[login]
-            # For some reason, encode('base64') adds a spurious trailing newline,
-            # which chokes javascript's atob() and is ignored by decode('base64').
             headers.setdefault(
-                "Cookie", 'login="%s"; token=%s' % (login.encode('base64')[:-1], token)
+                "Cookie", 'login="%s"; token=%s' % (b64encode(login).decode("latin1"), token)
             )
 
         return webtest.WebCase.getPage(
@@ -115,7 +114,7 @@ class MetaphraseTestCase(webtest.WebCase):
 
 
 def setUpServer():
-    print "--------------------------------- GLOBAL SETUP ---------------------------------"
+    print("--------------------------------- GLOBAL SETUP ---------------------------------")
     cherrypy.config.update({
         "environment": "test_suite",
         # Uncomment the following line to get CP logs output to screen:
@@ -171,5 +170,5 @@ def tearDownPackage():
     # is to make a tearDownClass method that calls cherrypy.engine.stop.
     # We're printing this banner message to help alert you to this fact
     # when you pass multiple path args to nose.
-    print "--------------------------------- GLOBAL TEARDOWN ---------------------------------"
+    print("--------------------------------- GLOBAL TEARDOWN ---------------------------------")
     tearDownServer()

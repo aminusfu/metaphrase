@@ -232,7 +232,6 @@ var api_root = "/api/";
 var worksection = work + "/" + section + "/";
 
 var entries = {};
-var lexical_notes = {};
 
 function word_from_spanid(wordid) { return associate(["phraseid", "wordid", "version"], wordid.split("-")); }
 
@@ -251,11 +250,9 @@ function scrollToMiddle(element) {
 function load_section() {
     // Fetch the version text(s).
     entries = {};
-    lexical_notes = {};
     var line_height = get_line_height();
     for (var v = 0; v < versions.length; v++) {
         entries[versions[v]] = {};
-        lexical_notes[versions[v]] = {};
 
         var url = api_root + "versions/" + versions[v] + "/text/" + worksection;
         var h = http("GET", url, true, "Retrieving " + versions[v]);
@@ -265,7 +262,6 @@ function load_section() {
             var passage = JSON.parse(h.responseText);
 
             entries[versions[h.rownum]] = passage['index'];
-            lexical_notes[versions[h.rownum]] = passage['lexical_notes'];
 
             if (h.rownum == 0) {
                 set_text($('section_title'), passage["name"]);
@@ -565,8 +561,8 @@ function select_word(wordspan) {
             set_option($('select_' + parsing_category_order[i]), ch);
         }
 
-        var lexnote = lexical_note_text(selection.version, entry.lemma);
-        set_lexical_note(lexnote);
+        set_lexical_note("");
+        fetch_lexical_note(selection.version, entry.lemma);
         set_selected_version(selection.version);
         $("footer").style.visibility = 'visible';
     }
@@ -962,13 +958,15 @@ function toggle_notes() {
     }
 }
 
-function lexical_note_text(version, lemma) {
-    // Return the text of the identified lexical note, or the empty string if not found.
-    var lexnotes = lexical_notes[version];
-    if (lexnotes === undefined) return "";
-    lexnote = lexnotes[lemma];
-    if (lexnote === undefined) return "";
-    return lexnote;
+function fetch_lexical_note(version, lemma) {
+    var url = api_root + "versions/" + version + "/notes/lexical/" + encodeURIComponent(lemma) + "/";
+    var h = http("GET", url, true);
+    h[200] = function(h) {
+        var j = JSON.parse(h.responseText);
+        set_lexical_note(j["body"]["note"]);
+    };
+    h[404] = function(h) {};
+    h.send();
 }
 
 function set_lexical_note(lexnote) {
@@ -984,7 +982,6 @@ function lexnote_save() {
     if (selected_spanid === null) return;
     var lemma = get_text($("lemma"));
     var note = $("lexical_note").value;
-    lexical_notes[selected_version][lemma] = note;
 
     var url = api_root + "versions/" + selected_version + "/notes/lexical/" + encodeURIComponent(lemma) + "/";
     var h = http("PUT", url, true, "Saving...");
