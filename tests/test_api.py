@@ -187,7 +187,7 @@ class TestVersions(MetaphraseTestCase):
         self.getPage('/api/versions/untranslated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(3)),
+            self.get_text(range(3)),
             [
                 u'\u03a0\u03b1\u1fe6\u03bb\u03bf\u03c2',
                 u'\u03ba\u03bb\u03b7\u03c4\u1f78\u03c2',
@@ -379,7 +379,7 @@ class TestText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(3)),
+            self.get_text(range(3)),
             [
                 u'Paul',
                 u'\u03ba\u03bb\u03b7\u03c4\u1f78\u03c2',
@@ -407,7 +407,7 @@ class TestText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(3)),
+            self.get_text(range(3)),
             [
                 u'Paulos',
                 u'\u03ba\u03bb\u03b7\u03c4\u1f78\u03c2',
@@ -441,7 +441,7 @@ class TestText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(3)),
+            self.get_text(range(3)),
             [
                 u'Paul',
                 u'apostle',
@@ -466,7 +466,7 @@ class TestText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(3)),
+            self.get_text(range(3)),
             [
                 u'\u03ba\u03bb\u03b7\u03c4\u1f78\u03c2',
                 u'Paul',
@@ -500,7 +500,7 @@ class TestText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(3)),
+            self.get_text(range(3)),
             [
                 u'Paulos',
                 u'\u03ba\u03bb\u03b7\u03c4\u1f78\u03c2',
@@ -532,7 +532,7 @@ class TestSplitText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(3)),
+            self.get_text(range(3)),
             [
                 u'Paul',
                 u'\u03ba\u03bb\u03b7\u03c4\u1f78\u03c2',
@@ -551,7 +551,7 @@ class TestSplitText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(4)),
+            self.get_text(range(4)),
             [u'Paul', u'\u03ba\u03bb\u03b7\u03c4\u1f78\u03c2',
              u'an', u'apostle']
         )
@@ -576,7 +576,7 @@ class TestSplitText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(37, 40)),
+            self.get_text(range(37, 40)),
             [u'of', u'our', u'lord']
         )
         self.assertEqual(
@@ -591,7 +591,7 @@ class TestSplitText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(37, 40)),
+            self.get_text(range(37, 40)),
             [u'of', u'lord', u'our']
         )
         self.assertEqual(
@@ -618,7 +618,7 @@ class TestSplitText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(37, 40)),
+            self.get_text(range(37, 40)),
             [u'our', u'of', u'lord']
         )
         self.assertEqual(
@@ -634,7 +634,7 @@ class TestSplitText(MetaphraseTestCase):
         self.getPage('/api/versions/translated/text/1Co/1/')
         self.assertStatus(200)
         self.assertEqual(
-            self.get_text(xrange(37, 40)),
+            self.get_text(range(37, 40)),
             [u'of', u'lord', u'our']
         )
         self.assertEqual(

@@ -91,7 +91,7 @@ class TestBasicImport(MetaphraseTestCase):
                 ["1.1:0", "1.2:0", "1.3:0"]
             )
             self.assertEqual(
-                self.get_text(xrange(3)),
+                self.get_text(range(3)),
                 [u'ἐὰν', u'δέ', u'τις']
             )
 

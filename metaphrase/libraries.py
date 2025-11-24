@@ -233,10 +233,10 @@ class Section:
                 posttext = len(e["text"])
                 if posttext > pretext:
                     # More text than before. Add ids to the order.
-                    newids = ["%s:%d" % (phraseid, i) for i in xrange(pretext, posttext)]
+                    newids = ["%s:%d" % (phraseid, i) for i in range(pretext, posttext)]
                     if pretext:
                         idxs = [self.order.index("%s:%d" % (phraseid, i))
-                                for i in xrange(pretext)]
+                                for i in range(pretext)]
                         idxs.sort()
                         last = idxs[-1]
                         self.order[last + 1:last + 1] = newids
@@ -244,7 +244,7 @@ class Section:
                         self.order.extend(newids)
                 elif posttext < pretext:
                     # Less text than before.
-                    for i in xrange(posttext, pretext):
+                    for i in range(posttext, pretext):
                         self.order.remove("%s:%d" % (phraseid, i))
 
     def move_before(self, id, movebefore):
@@ -301,7 +301,7 @@ class Section:
                 # For now, if no match, default to the text of the source version.
                 best_text = [e["text"][int(wordid)]]
 
-            new_ids.extend([(phraseid, i) for i in xrange(len(best_text))])
+            new_ids.extend([(phraseid, i) for i in range(len(best_text))])
             new_text.extend(best_text)
 
         # TODO: is this really how we want to return this now?
